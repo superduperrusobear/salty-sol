@@ -33,49 +33,105 @@ interface FirebaseConfig {
   storageBucket: string;
   messagingSenderId: string;
   appId: string;
-  measurementId: string;
+  measurementId?: string;
 }
 
 // Your web app's Firebase configuration
-const firebaseConfig: FirebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL!,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!
+const firebaseConfig: Partial<FirebaseConfig> = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+};
+
+// Validate Firebase config
+const validateFirebaseConfig = () => {
+  const requiredFields: (keyof FirebaseConfig)[] = [
+    'apiKey',
+    'authDomain',
+    'databaseURL',
+    'projectId',
+    'storageBucket',
+    'messagingSenderId',
+    'appId'
+  ];
+
+  const missingFields = requiredFields.filter(field => !firebaseConfig[field]);
+  if (missingFields.length > 0) {
+    throw new Error(`Missing required Firebase configuration fields: ${missingFields.join(', ')}`);
+  }
+};
+
+// Initialize Firebase only if all required config is present
+let app!: ReturnType<typeof initializeApp>;
+let auth!: ReturnType<typeof getAuth>;
+let db!: ReturnType<typeof getDatabase>;
+let analytics: ReturnType<typeof getAnalytics> | null = null;
+
+const initializeFirebase = () => {
+  try {
+    validateFirebaseConfig();
+    const firebaseApp = initializeApp(firebaseConfig as FirebaseConfig);
+    const firebaseAuth = getAuth(firebaseApp);
+    const firebaseDb = getDatabase(firebaseApp);
+    
+    // Only initialize analytics on the client side
+    if (typeof window !== 'undefined') {
+      analytics = getAnalytics(firebaseApp);
+    }
+
+    // Set persistence to LOCAL (this will persist the auth state across page refreshes)
+    setPersistence(firebaseAuth, browserLocalPersistence)
+      .then(() => {
+        console.log('🔐 Firebase auth persistence set to LOCAL');
+      })
+      .catch((error) => {
+        console.error('❌ Error setting auth persistence:', error);
+      });
+
+    // Assign to global variables after successful initialization
+    app = firebaseApp;
+    auth = firebaseAuth;
+    db = firebaseDb;
+
+    console.log('📝 Firebase config loaded:', {
+      projectId: firebaseConfig.projectId,
+      databaseURL: firebaseConfig.databaseURL,
+      authDomain: firebaseConfig.authDomain
+    });
+
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to initialize Firebase:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Please check your .env.local file and environment variables');
+    }
+    throw new Error('Firebase failed to initialize');
+  }
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getDatabase(app);
-
-// Only initialize analytics on the client side
-let analytics = null;
-if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app);
+try {
+  initializeFirebase();
+} catch (error) {
+  console.error('Failed to initialize Firebase:', error);
+  throw error;
 }
 
-// Export Firebase instances
+// Export initialized Firebase instances
 export { app, auth, db };
 
-console.log('📝 Firebase config loaded:', {
-  projectId: firebaseConfig.projectId,
-  databaseURL: firebaseConfig.databaseURL,
-  authDomain: firebaseConfig.authDomain
-});
-
-// Set persistence to LOCAL (this will persist the auth state across page refreshes)
-setPersistence(auth, browserLocalPersistence)
-  .then(() => {
-    console.log('🔐 Firebase auth persistence set to LOCAL');
-  })
-  .catch((error) => {
-    console.error('❌ Error setting auth persistence:', error);
-  });
+// Helper function to ensure Firebase is initialized
+const ensureFirebase = () => {
+  if (!app || !auth || !db) {
+    throw new Error('Firebase is not properly initialized');
+  }
+  return { app, auth, db };
+};
 
 // Initialize database only after authentication
 const initializeAfterAuth = async () => {
@@ -196,44 +252,49 @@ const testDatabaseAccess = async () => {
 };
 
 // Test database connection immediately
-const testRef = ref(db, '.info/connected');
-onValue(testRef, (snapshot) => {
-  if (snapshot.val() === true) {
-    console.log('✅ Successfully connected to Firebase at:', firebaseConfig.databaseURL);
-    console.log('🔑 Auth state:', auth.currentUser?.uid || 'No user authenticated');
-  } else {
-    console.error('❌ Failed to connect to Firebase Database');
-    console.error('Current database reference:', testRef.toString());
-  }
-}, (error) => {
-  console.error('🚫 Firebase connection error:', error);
-});
-
-// Verify database connection and auth state
-const connectedRef = ref(db, '.info/connected');
-onValue(connectedRef, (snap) => {
-  if (snap.val() === true) {
-    console.log('🟢 Connected to Firebase Database');
-    console.log('👤 Current auth state:', auth.currentUser?.uid);
-    
-    // Only initialize if we have an authenticated user
-    if (auth.currentUser) {
-      // Verify user data exists
-      const userRef = ref(db, `users/${auth.currentUser.uid}`);
-      get(userRef).then(snapshot => {
-        if (snapshot.exists()) {
-          console.log('✅ User data found:', snapshot.val().username);
-        } else {
-          console.log('❌ No user data found for:', auth.currentUser?.uid);
-        }
-      });
+const setupDatabaseListeners = () => {
+  const testRef = ref(db, '.info/connected');
+  onValue(testRef, (snapshot) => {
+    if (snapshot.val() === true) {
+      console.log('✅ Successfully connected to Firebase at:', firebaseConfig.databaseURL);
+      console.log('🔑 Auth state:', auth.currentUser?.uid || 'No user authenticated');
     } else {
-      console.log('No authenticated user - skipping database initialization');
+      console.error('❌ Failed to connect to Firebase Database');
+      console.error('Current database reference:', testRef.toString());
     }
-  } else {
-    console.log('🔴 Not connected to Firebase Database');
-  }
-});
+  }, (error) => {
+    console.error('🚫 Firebase connection error:', error);
+  });
+
+  // Verify database connection and auth state
+  const connectedRef = ref(db, '.info/connected');
+  onValue(connectedRef, (snap) => {
+    if (snap.val() === true) {
+      console.log('🟢 Connected to Firebase Database');
+      console.log('👤 Current auth state:', auth.currentUser?.uid);
+      
+      // Only initialize if we have an authenticated user
+      if (auth.currentUser) {
+        // Verify user data exists
+        const userRef = ref(db, `users/${auth.currentUser.uid}`);
+        get(userRef).then(snapshot => {
+          if (snapshot.exists()) {
+            console.log('✅ User data found:', snapshot.val().username);
+          } else {
+            console.log('❌ No user data found for:', auth.currentUser?.uid);
+          }
+        });
+      } else {
+        console.log('No authenticated user - skipping database initialization');
+      }
+    } else {
+      console.log('🔴 Not connected to Firebase Database');
+    }
+  });
+};
+
+// Initialize listeners
+setupDatabaseListeners();
 
 // Initialize required database structure
 const initializeDatabase = async () => {
@@ -456,10 +517,10 @@ interface UsernameRecord {
 onValue(connectedRef, (snap) => {
   if (snap.val() === true) {
     console.log('🟢 Connected to Firebase Database');
-    console.log('👤 Current auth state:', auth.currentUser?.uid);
+    console.log('👤 Current auth state:', auth?.currentUser?.uid);
     
     // Only initialize if we have an authenticated user
-    if (auth.currentUser) {
+    if (auth?.currentUser) {
       // Verify user data exists
       const userRef = ref(db, `users/${auth.currentUser.uid}`);
       get(userRef).then(snapshot => {
@@ -543,6 +604,7 @@ const updateUsernameStats = async (username: string, won: boolean = false) => {
 };
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
+  const { db } = ensureFirebase();
   const userRef = ref(db, `users/${userId}`);
   const snapshot = await get(userRef);
   return snapshot.val();
@@ -1007,7 +1069,7 @@ interface ChatMessage {
 
 // Add chat moderation functions
 export const deleteMessage = async (messageId: string) => {
-  const user = auth.currentUser;
+  const user = auth?.currentUser;
   if (!user) throw new Error('Must be logged in to moderate chat');
 
   // Check if user is a moderator
@@ -1021,7 +1083,7 @@ export const deleteMessage = async (messageId: string) => {
 };
 
 export const muteUser = async (userId: string, durationMinutes: number) => {
-  const user = auth.currentUser;
+  const user = auth?.currentUser;
   if (!user) throw new Error('Must be logged in to moderate chat');
 
   // Check if user is a moderator
