@@ -1,0 +1,14 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "chat": {
+      "messages": {
+        ".indexOn": ["timestamp"]
+      }
+    },
+    "users": {
+      ".indexOn": ["username"]
+    }
+  }
+} 
