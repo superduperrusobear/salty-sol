@@ -12,7 +12,8 @@ export type BattleEvent =
   | 'newBet'
   | 'roundComplete'
   | 'stageChange'
-  | 'timeUpdate';
+  | 'timeUpdate'
+  | 'arenaChange';
 
 export type BattleStage = 'betting' | 'fighting' | 'payout' | 'transitioning';
 

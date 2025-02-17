@@ -25,32 +25,42 @@ import {
   Database
 } from 'firebase/database';
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+interface FirebaseConfig {
+  apiKey: string;
+  authDomain: string;
+  databaseURL: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+  measurementId: string;
+}
+
+// Your web app's Firebase configuration
+const firebaseConfig: FirebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!
 };
 
 // Initialize Firebase
-let app;
-try {
-  app = initializeApp(firebaseConfig);
-  console.log('🔄 Firebase app initialization started');
-} catch (error) {
-  console.error('❌ Error initializing Firebase:', error);
-  throw error;
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+// Only initialize analytics on the client side
+let analytics = null;
+if (typeof window !== 'undefined') {
+  analytics = getAnalytics(app);
 }
 
-// Initialize services
-const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
-const db = getDatabase(app);
-export const auth = getAuth(app);
+// Export Firebase instances
+export { app, auth, db };
 
 console.log('📝 Firebase config loaded:', {
   projectId: firebaseConfig.projectId,
@@ -382,7 +392,7 @@ const verifyUsernameRecords = async () => {
           userId,
           createdAt: user.createdAt,
           totalBets: user.totalBets || 0,
-          totalWins: user.totalWins || 0,
+          wins: user.wins || 0,
           lastUpdated: serverTimestamp()
         });
       }
@@ -424,17 +434,14 @@ setTimeout(() => {
   testDatabaseWrite();
 }, 2000);
 
-// Export the database instance
-export { db };
-
 // User Profile Management
 interface UserProfile {
   username: string;
-  createdAt: string;
-  totalBets: number;
-  totalWins: number;
   solBalance: number;
-  lastUpdated?: any;
+  totalBets: number;
+  wins: number;
+  losses: number;
+  createdAt: number;
 }
 
 interface UsernameRecord {
@@ -506,7 +513,7 @@ export const updateUserProfile = async (userId: string, profile: UserProfile) =>
       userId,
       createdAt: profile.createdAt,
       totalBets: profile.totalBets || 0,
-      totalWins: profile.totalWins || 0,
+      wins: profile.wins || 0,
       lastUpdated: serverTimestamp()
     };
     
@@ -529,7 +536,7 @@ const updateUsernameStats = async (username: string, won: boolean = false) => {
   if (userData) {
     await update(usernameRef, {
       totalBets: (userData.totalBets || 0) + 1,
-      totalWins: won ? (userData.totalWins || 0) + 1 : (userData.totalWins || 0),
+      wins: won ? (userData.wins || 0) + 1 : (userData.wins || 0),
       lastBet: serverTimestamp()
     });
   }
@@ -638,7 +645,7 @@ export const handleBattleResult = async (
         const payout = betData.amount * payoutMultiplier;
         await update(userRef, {
           solBalance: (userData.solBalance || 0) + payout,
-          totalWins: (userData.totalWins || 0) + 1,
+          wins: (userData.wins || 0) + 1,
           lastPayout: payout,
           lastPayoutTimestamp: serverTimestamp()
         });
@@ -953,7 +960,7 @@ export const determineWinner = async (winner: 'player1' | 'player2') => {
     if (betRecord.player === winner) {
       const winnings = betRecord.amount * payoutMultiplier;
       updates[`users/${betRecord.userId}/solBalance`] = serverTimestamp();
-      updates[`users/${betRecord.userId}/totalWins`] = serverTimestamp();
+      updates[`users/${betRecord.userId}/wins`] = serverTimestamp();
       updates[`users/${betRecord.userId}/lastWin`] = {
         matchId: historyRef,
         amount: winnings,
