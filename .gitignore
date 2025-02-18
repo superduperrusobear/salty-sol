@@ -2,6 +2,7 @@
 
 # Firebase
 serviceAccountKey.json
+saltysol-81f2a-firebase-adminsdk-fbsvc-2c6aa0d122.json
 .env.local
 .env.development.local
 .env.test.local
