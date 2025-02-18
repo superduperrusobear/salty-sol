@@ -25,19 +25,8 @@ import {
   Database
 } from 'firebase/database';
 
-interface FirebaseConfig {
-  apiKey: string;
-  authDomain: string;
-  databaseURL: string;
-  projectId: string;
-  storageBucket: string;
-  messagingSenderId: string;
-  appId: string;
-  measurementId?: string;
-}
-
-// Your web app's Firebase configuration
-const firebaseConfig: Partial<FirebaseConfig> = {
+// Firebase configuration
+const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL,
@@ -48,90 +37,35 @@ const firebaseConfig: Partial<FirebaseConfig> = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Validate Firebase config
-const validateFirebaseConfig = () => {
-  const requiredFields: (keyof FirebaseConfig)[] = [
-    'apiKey',
-    'authDomain',
-    'databaseURL',
-    'projectId',
-    'storageBucket',
-    'messagingSenderId',
-    'appId'
-  ];
-
-  const missingFields = requiredFields.filter(field => !firebaseConfig[field]);
-  if (missingFields.length > 0) {
-    throw new Error(`Missing required Firebase configuration fields: ${missingFields.join(', ')}`);
-  }
-};
-
-// Initialize Firebase only if all required config is present
-let app!: ReturnType<typeof initializeApp>;
-let auth!: ReturnType<typeof getAuth>;
-let db!: ReturnType<typeof getDatabase>;
-let analytics: ReturnType<typeof getAnalytics> | null = null;
-
-const initializeFirebase = () => {
-  try {
-    validateFirebaseConfig();
-    const firebaseApp = initializeApp(firebaseConfig as FirebaseConfig);
-    const firebaseAuth = getAuth(firebaseApp);
-    const firebaseDb = getDatabase(firebaseApp);
-    
-    // Only initialize analytics on the client side
-    if (typeof window !== 'undefined') {
-      analytics = getAnalytics(firebaseApp);
-    }
-
-    // Set persistence to LOCAL (this will persist the auth state across page refreshes)
-    setPersistence(firebaseAuth, browserLocalPersistence)
-      .then(() => {
-        console.log('🔐 Firebase auth persistence set to LOCAL');
-      })
-      .catch((error) => {
-        console.error('❌ Error setting auth persistence:', error);
-      });
-
-    // Assign to global variables after successful initialization
-    app = firebaseApp;
-    auth = firebaseAuth;
-    db = firebaseDb;
-
-    console.log('📝 Firebase config loaded:', {
-      projectId: firebaseConfig.projectId,
-      databaseURL: firebaseConfig.databaseURL,
-      authDomain: firebaseConfig.authDomain
-    });
-
-    return true;
-  } catch (error) {
-    console.error('❌ Failed to initialize Firebase:', error);
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Please check your .env.local file and environment variables');
-    }
-    throw new Error('Firebase failed to initialize');
-  }
-};
-
 // Initialize Firebase
+let app;
 try {
-  initializeFirebase();
+  app = initializeApp(firebaseConfig);
+  console.log('🔄 Firebase app initialization started');
 } catch (error) {
-  console.error('Failed to initialize Firebase:', error);
+  console.error('❌ Error initializing Firebase:', error);
   throw error;
 }
 
-// Export initialized Firebase instances
-export { app, auth, db };
+// Initialize services
+const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
+const db = getDatabase(app);
+export const auth = getAuth(app);
 
-// Helper function to ensure Firebase is initialized
-const ensureFirebase = () => {
-  if (!app || !auth || !db) {
-    throw new Error('Firebase is not properly initialized');
-  }
-  return { app, auth, db };
-};
+console.log('📝 Firebase config loaded:', {
+  projectId: firebaseConfig.projectId,
+  databaseURL: firebaseConfig.databaseURL,
+  authDomain: firebaseConfig.authDomain
+});
+
+// Set persistence to LOCAL (this will persist the auth state across page refreshes)
+setPersistence(auth, browserLocalPersistence)
+  .then(() => {
+    console.log('🔐 Firebase auth persistence set to LOCAL');
+  })
+  .catch((error) => {
+    console.error('❌ Error setting auth persistence:', error);
+  });
 
 // Initialize database only after authentication
 const initializeAfterAuth = async () => {
@@ -252,49 +186,44 @@ const testDatabaseAccess = async () => {
 };
 
 // Test database connection immediately
-const setupDatabaseListeners = () => {
-  const testRef = ref(db, '.info/connected');
-  onValue(testRef, (snapshot) => {
-    if (snapshot.val() === true) {
-      console.log('✅ Successfully connected to Firebase at:', firebaseConfig.databaseURL);
-      console.log('🔑 Auth state:', auth.currentUser?.uid || 'No user authenticated');
-    } else {
-      console.error('❌ Failed to connect to Firebase Database');
-      console.error('Current database reference:', testRef.toString());
-    }
-  }, (error) => {
-    console.error('🚫 Firebase connection error:', error);
-  });
+const testRef = ref(db, '.info/connected');
+onValue(testRef, (snapshot) => {
+  if (snapshot.val() === true) {
+    console.log('✅ Successfully connected to Firebase at:', firebaseConfig.databaseURL);
+    console.log('🔑 Auth state:', auth.currentUser?.uid || 'No user authenticated');
+  } else {
+    console.error('❌ Failed to connect to Firebase Database');
+    console.error('Current database reference:', testRef.toString());
+  }
+}, (error) => {
+  console.error('🚫 Firebase connection error:', error);
+});
 
-  // Verify database connection and auth state
-  const connectedRef = ref(db, '.info/connected');
-  onValue(connectedRef, (snap) => {
-    if (snap.val() === true) {
-      console.log('🟢 Connected to Firebase Database');
-      console.log('👤 Current auth state:', auth.currentUser?.uid);
-      
-      // Only initialize if we have an authenticated user
-      if (auth.currentUser) {
-        // Verify user data exists
-        const userRef = ref(db, `users/${auth.currentUser.uid}`);
-        get(userRef).then(snapshot => {
-          if (snapshot.exists()) {
-            console.log('✅ User data found:', snapshot.val().username);
-          } else {
-            console.log('❌ No user data found for:', auth.currentUser?.uid);
-          }
-        });
-      } else {
-        console.log('No authenticated user - skipping database initialization');
-      }
+// Verify database connection and auth state
+const connectedRef = ref(db, '.info/connected');
+onValue(connectedRef, (snap) => {
+  if (snap.val() === true) {
+    console.log('🟢 Connected to Firebase Database');
+    console.log('👤 Current auth state:', auth.currentUser?.uid);
+    
+    // Only initialize if we have an authenticated user
+    if (auth.currentUser) {
+      // Verify user data exists
+      const userRef = ref(db, `users/${auth.currentUser.uid}`);
+      get(userRef).then(snapshot => {
+        if (snapshot.exists()) {
+          console.log('✅ User data found:', snapshot.val().username);
+        } else {
+          console.log('❌ No user data found for:', auth.currentUser?.uid);
+        }
+      });
     } else {
-      console.log('🔴 Not connected to Firebase Database');
+      console.log('No authenticated user - skipping database initialization');
     }
-  });
-};
-
-// Initialize listeners
-setupDatabaseListeners();
+  } else {
+    console.log('🔴 Not connected to Firebase Database');
+  }
+});
 
 // Initialize required database structure
 const initializeDatabase = async () => {
@@ -453,7 +382,7 @@ const verifyUsernameRecords = async () => {
           userId,
           createdAt: user.createdAt,
           totalBets: user.totalBets || 0,
-          wins: user.wins || 0,
+          totalWins: user.totalWins || 0,
           lastUpdated: serverTimestamp()
         });
       }
@@ -495,14 +424,17 @@ setTimeout(() => {
   testDatabaseWrite();
 }, 2000);
 
+// Export the database instance
+export { db };
+
 // User Profile Management
 interface UserProfile {
   username: string;
-  solBalance: number;
+  createdAt: string;
   totalBets: number;
-  wins: number;
-  losses: number;
-  createdAt: number;
+  totalWins: number;
+  solBalance: number;
+  lastUpdated?: any;
 }
 
 interface UsernameRecord {
@@ -517,10 +449,10 @@ interface UsernameRecord {
 onValue(connectedRef, (snap) => {
   if (snap.val() === true) {
     console.log('🟢 Connected to Firebase Database');
-    console.log('👤 Current auth state:', auth?.currentUser?.uid);
+    console.log('👤 Current auth state:', auth.currentUser?.uid);
     
     // Only initialize if we have an authenticated user
-    if (auth?.currentUser) {
+    if (auth.currentUser) {
       // Verify user data exists
       const userRef = ref(db, `users/${auth.currentUser.uid}`);
       get(userRef).then(snapshot => {
@@ -574,7 +506,7 @@ export const updateUserProfile = async (userId: string, profile: UserProfile) =>
       userId,
       createdAt: profile.createdAt,
       totalBets: profile.totalBets || 0,
-      wins: profile.wins || 0,
+      totalWins: profile.totalWins || 0,
       lastUpdated: serverTimestamp()
     };
     
@@ -597,14 +529,13 @@ const updateUsernameStats = async (username: string, won: boolean = false) => {
   if (userData) {
     await update(usernameRef, {
       totalBets: (userData.totalBets || 0) + 1,
-      wins: won ? (userData.wins || 0) + 1 : (userData.wins || 0),
+      totalWins: won ? (userData.totalWins || 0) + 1 : (userData.totalWins || 0),
       lastBet: serverTimestamp()
     });
   }
 };
 
 export const getUserProfile = async (userId: string): Promise<UserProfile | null> => {
-  const { db } = ensureFirebase();
   const userRef = ref(db, `users/${userId}`);
   const snapshot = await get(userRef);
   return snapshot.val();
@@ -707,7 +638,7 @@ export const handleBattleResult = async (
         const payout = betData.amount * payoutMultiplier;
         await update(userRef, {
           solBalance: (userData.solBalance || 0) + payout,
-          wins: (userData.wins || 0) + 1,
+          totalWins: (userData.totalWins || 0) + 1,
           lastPayout: payout,
           lastPayoutTimestamp: serverTimestamp()
         });
@@ -1022,7 +953,7 @@ export const determineWinner = async (winner: 'player1' | 'player2') => {
     if (betRecord.player === winner) {
       const winnings = betRecord.amount * payoutMultiplier;
       updates[`users/${betRecord.userId}/solBalance`] = serverTimestamp();
-      updates[`users/${betRecord.userId}/wins`] = serverTimestamp();
+      updates[`users/${betRecord.userId}/totalWins`] = serverTimestamp();
       updates[`users/${betRecord.userId}/lastWin`] = {
         matchId: historyRef,
         amount: winnings,
@@ -1069,7 +1000,7 @@ interface ChatMessage {
 
 // Add chat moderation functions
 export const deleteMessage = async (messageId: string) => {
-  const user = auth?.currentUser;
+  const user = auth.currentUser;
   if (!user) throw new Error('Must be logged in to moderate chat');
 
   // Check if user is a moderator
@@ -1083,7 +1014,7 @@ export const deleteMessage = async (messageId: string) => {
 };
 
 export const muteUser = async (userId: string, durationMinutes: number) => {
-  const user = auth?.currentUser;
+  const user = auth.currentUser;
   if (!user) throw new Error('Must be logged in to moderate chat');
 
   // Check if user is a moderator

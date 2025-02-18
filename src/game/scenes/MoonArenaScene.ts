@@ -425,12 +425,12 @@ export class MoonArenaScene extends Phaser.Scene {
                 }
             });
 
-            this.tweens.add({
+    this.tweens.add({
                 targets: this.fighter2.sprite,
                 x: centerX + 100,
-                duration: 1000,
+      duration: 1000,
                 ease: 'Power2',
-                onComplete: () => {
+      onComplete: () => {
                     // Counter attack sequence
                     setTimeout(() => {
                         this.playFighterAnimation(this.fighter2.sprite, `${player2Key}-attack`);

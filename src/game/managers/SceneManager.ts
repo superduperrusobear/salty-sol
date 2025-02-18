@@ -1,5 +1,5 @@
 import { Scene } from 'phaser';
-import { EventManager, BattleEvent } from './EventManager';
+import { EventManager } from './EventManager';
 
 export interface ArenaConfig {
   key: string;
@@ -55,7 +55,7 @@ export class SceneManager {
   }
 
   private setupEventListeners() {
-    this.eventManager.on('roundComplete' as BattleEvent, () => {
+    this.eventManager.on('battleComplete', () => {
       this.cycleToNextArena();
     });
   }

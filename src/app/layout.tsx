@@ -8,6 +8,11 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Salty Sol",
   description: "Experience the thrill of crypto-style betting with zero risk. Place your bets, watch epic battles, and climb the leaderboard!",
+  icons: {
+    icon: '/images/s.png',
+    shortcut: '/images/s.png',
+    apple: '/images/s.png',
+  }
 };
 
 export default function RootLayout({
@@ -17,9 +22,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link rel="icon" href="/images/s.png" sizes="any" />
-      </head>
       <body className={inter.className}>
         <UserProvider>
           <main>{children}</main>

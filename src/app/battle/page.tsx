@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
-import type { NextPage } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
@@ -102,7 +101,7 @@ const CONSTANTS = {
 } as const;
 
 export default function BattlePage() {
-  const { user, placeBet, handleWin } = useUser();
+  const { user, placeBet } = useUser();
   const [currentBattle, setCurrentBattle] = useState<BattleData>({
     pool: {
       player1Total: 0,

@@ -1,19 +1,16 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', 'saltysol-81f2a.firebaseapp.com', 'saltysol-81f2a.firebasestorage.app'],
     remotePatterns: [
       {
         protocol: 'https',
         hostname: '**',
       },
     ],
-    unoptimized: true,
   },
   experimental: {
-    turbo: {
-      enabled: true
-    }
+    turbo: true,
   },
 };
 

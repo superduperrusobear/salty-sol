@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { MoonArenaScene } from './scenes/MoonArenaScene';
 import { ArenaConfig } from './managers/SceneManager';
 import { useUser } from '../contexts/UserContext';
