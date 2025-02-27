@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Inter } from 'next/font/google';
 import "./globals.css";
-import { UserProvider } from "@/contexts/UserContext";
+import { Providers } from "@/components/Providers";
+import { BackgroundMusic } from "@/components/BackgroundMusic";
+import type { ReactNode } from 'react';
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
-  title: "Salty Sol",
-  description: "Experience the thrill of crypto-style betting with zero risk. Place your bets, watch epic battles, and climb the leaderboard!",
+  title: "Salty Sol - Crypto Battle Arena",
+  description: "Crypto battle betting platform",
   icons: {
     icon: '/images/s.png',
     shortcut: '/images/s.png',
@@ -17,15 +23,16 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+}: {
+  children: ReactNode;
+}) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <UserProvider>
-          <main>{children}</main>
-        </UserProvider>
+    <html lang="en" className="bg-[#0a0b0f]">
+      <body className={`${inter.variable} font-sans antialiased min-h-screen bg-gradient-to-b from-black to-[#0a0b0f]`}>
+        <Providers>
+          {children}
+        </Providers>
+        <BackgroundMusic />
       </body>
     </html>
   );

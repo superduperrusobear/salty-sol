@@ -1,918 +1,682 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import dynamic from 'next/dynamic';
-import { 
-  ChatBubbleLeftIcon, 
-  ShareIcon, 
-  EllipsisHorizontalIcon,
-  PlayIcon,
-  PauseIcon,
-  SpeakerWaveIcon,
-  ArrowsPointingOutIcon,
-  Cog6ToothIcon,
-  WalletIcon,
-  TrophyIcon,
-  UserGroupIcon
-} from '@heroicons/react/24/outline';
-import { 
-  subscribeToCurrentBattle,
-  subscribeToRecentBets,
-  subscribeToBattleHistory,
-  subscribeToUserProfile
-} from '@/services/firebase';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUser } from '@/contexts/UserContext';
-import ChatBox from '@/components/ChatBox';
-import { FighterManager } from '@/game/managers/FighterManager';
+import { ChatBox } from '@/components/ChatBox';
+import { Leaderboard } from '@/components/Leaderboard';
+import { tokenService } from '@/services/tokenService';
+import { useBattle } from '@/contexts/BattleContext';
+import type { Fighter } from '@/contexts/BattleContext';
+import type { BattleState } from '@/contexts/BattleContext';
+import { BattleGame } from '@/components/game/BattleGame';
+import Image from 'next/image';
 
-const BattleGame = dynamic(() => import('@/game/BattleGame'), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full flex items-center justify-center">
-      <div className="text-2xl font-bold text-white">Loading Battle Arena...</div>
+interface FighterModalProps {
+  fighter: Fighter | null;
+  isOpen: boolean;
+  onClose: () => void;
+  battleState: BattleState;
+}
+
+const FighterModal = ({ fighter, isOpen, onClose, battleState }: FighterModalProps) => {
+  if (!isOpen || !fighter) return null;
+
+  const fallbackImage = fighter.symbol === 'ATM' ? '/FALLBACKS/atm.webp' : '/FALLBACKS/woke.webp';
+  const imageToUse = !battleState?.currentBattle ? fallbackImage : (fighter.imageUri || fallbackImage);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+      
+      {/* Modal Content */}
+      <div className="relative w-full max-w-lg rounded-lg border border-gray-800 bg-gray-950 p-4">
+        {/* Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <img 
+              src={imageToUse}
+              alt={fighter.name} 
+              className="h-8 w-8 rounded-full object-cover"
+            />
+            <div>
+              <h3 className="text-lg font-bold text-white">{fighter.name}</h3>
+              <p className="text-sm text-gray-400">{fighter.symbol}</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="rounded-full p-1 text-gray-400 hover:bg-gray-800 hover:text-white"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Token Analysis */}
+        <div className="space-y-4">
+          {/* Market Stats */}
+          <div className="rounded-lg border border-gray-800 bg-black/50 p-3">
+            <h4 className="mb-2 text-sm font-medium text-gray-400">Market Stats</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <p className="text-xs text-gray-500">Market Cap</p>
+                <p className="font-mono text-white">${tokenService.formatNumber(fighter.marketCap || 0)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">24h Volume</p>
+                <p className="font-mono text-white">${tokenService.formatNumber(fighter.volume || 0)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Price</p>
+                <p className="font-mono text-white">${fighter.price?.toFixed(8) || '0.00000000'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Token Info */}
+          <div className="rounded-lg border border-gray-800 bg-black/50 p-3">
+            <h4 className="mb-2 text-sm font-medium text-gray-400">Token Info</h4>
+            <div className="space-y-2">
+              <div>
+                <p className="text-xs text-gray-500">Contract Address</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-mono text-sm text-white truncate">{fighter.contractAddress}</p>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(fighter.contractAddress)}
+                    className="text-cyan-400 hover:text-cyan-300"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+                      <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">Network</p>
+                <p className="text-white">Solana</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-  )
-});
-
-interface BattleData {
-  pool: {
-    player1Total: number;
-    player2Total: number;
-    totalBets: number;
-  };
-  stage: string;
-  fighters?: {
-    player1: {
-      name: string;
-      symbol: string;
-      marketCap?: number;
-      holders?: number;
-      buys24h?: number;
-      sells24h?: number;
-      createdDays?: number;
-    };
-    player2: {
-      name: string;
-      symbol: string;
-      marketCap?: number;
-      holders?: number;
-      buys24h?: number;
-      sells24h?: number;
-      createdDays?: number;
-    };
-  };
-}
-
-interface BetRecord {
-  username: string;
-  amount: number;
-  player: 'player1' | 'player2';
-  timestamp: number;
-}
-
-interface BattleHistoryRecord {
-  id: string;
-  winner: 'player1' | 'player2';
-  totalPool: number;
-  timestamp: number;
-}
-
-interface SimulatedBet {
-  username: string;
-  amount: number;
-  player: 'player1' | 'player2';
-  timestamp: number;
-}
-
-// Add constants at the top after imports
-const CONSTANTS = {
-  BETTING_PHASE_DURATION: 45000, // 45 seconds for betting
-  FIGHT_PHASE_DURATION: 10000,
-  PAYOUT_PHASE_DURATION: 5000,
-  MIN_BET_AMOUNT: 1,
-  MAX_BET_AMOUNT: 100,
-  HOUSE_FEE_PERCENTAGE: 10,
-  SIMULATED_BETS_INTERVAL: 5000, // Generate bets every 5 seconds
-  MAX_RECENT_BETS: 10,
-  PAYOUT_MULTIPLIER: 0.9, // 90% of pool goes to winners
-  INITIAL_SIMULATED_BETS: 5 // Number of simulated bets to generate at start
-} as const;
+  );
+};
 
 export default function BattlePage() {
-  const { user, placeBet } = useUser();
-  const [currentBattle, setCurrentBattle] = useState<BattleData>({
-    pool: {
-      player1Total: 0,
-      player2Total: 0,
-      totalBets: 0
-    },
-    stage: 'betting'
-  });
-  const [recentBets, setRecentBets] = useState<BetRecord[]>([]);
-  const [battleHistory, setBattleHistory] = useState<BattleHistoryRecord[]>([]);
-  const [player1Amount, setPlayer1Amount] = useState('');
-  const [player2Amount, setPlayer2Amount] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [simulatedBets, setSimulatedBets] = useState<SimulatedBet[]>([]);
-  const [showCopiedTooltip1, setShowCopiedTooltip1] = useState(false);
-  const [showCopiedTooltip2, setShowCopiedTooltip2] = useState(false);
-  const [player1Token, setPlayer1Token] = useState('$PEPE');
-  const [player2Token, setPlayer2Token] = useState('$WIF');
-  const [player1Image, setPlayer1Image] = useState<string | null>(null);
-  const [player2Image, setPlayer2Image] = useState<string | null>(null);
-  const [currentFighters, setCurrentFighters] = useState({
-    player1: { name: '', image: '', marketCap: 0, holders: 0, buys24h: 0, sells24h: 0, createdDays: 0 },
-    player2: { name: '', image: '', marketCap: 0, holders: 0, buys24h: 0, sells24h: 0, createdDays: 0 }
-  });
+  const router = useRouter();
+  const { username, isGuest, solBalance } = useUser();
+  const { battleState, placeBet, calculatePotentialPayout } = useBattle();
+  const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
+  const [customAmount, setCustomAmount] = useState('');
+  const [selectedFighter, setSelectedFighter] = useState<Fighter | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Add ref for tracking current battle state
-  const battleStateRef = useRef(currentBattle);
-  const fighterManager = useRef(new FighterManager());
-
-  // Update ref whenever currentBattle changes
+  // Monitor battle state changes
   useEffect(() => {
-    battleStateRef.current = currentBattle;
-  }, [currentBattle]);
-
-  // Add predefined fight sequence
-  const fights = [
-    { player1: 'BATCAT', player2: 'EAGLE' },
-    { player1: 'EBICHU', player2: 'DUKO' },
-    { player1: 'VIGI', player2: 'GWR' },
-    { player1: 'COKE', player2: 'ANGLERFISH' },
-    { player1: 'PINION', player2: 'TRUMP' }
-  ];
-  const [currentFightIndex, setCurrentFightIndex] = useState(0);
-
-  useEffect(() => {
-    // Set initial fighters
-    const currentFight = fights[currentFightIndex];
-    setCurrentFighters({
-      player1: {
-        name: currentFight.player1,
-        image: `/images/P1/${currentFight.player1.toLowerCase()}.png`,
-        marketCap: 0,
-        holders: 0,
-        buys24h: 0,
-        sells24h: 0,
-        createdDays: 0
-      },
-      player2: {
-        name: currentFight.player2,
-        image: `/images/P2/${currentFight.player2.toLowerCase()}.png`,
-        marketCap: 0,
-        holders: 0,
-        buys24h: 0,
-        sells24h: 0,
-        createdDays: 0
-      }
-    });
-  }, [currentFightIndex]);
-
-  // Subscribe only to betting pool data from Firebase
-  useEffect(() => {
-    const unsubscribeBattle = subscribeToCurrentBattle((data) => {
-      if (data) {
-        setCurrentBattle(prev => ({
-          ...prev,
-          pool: {
-            player1Total: data.bettingPool?.player1 || 0,
-            player2Total: data.bettingPool?.player2 || 0,
-            totalBets: data.bettingPool?.totalPool || 0
-          },
-          stage: data.status || 'betting'
-        }));
-
-        // If battle ended, progress to next fight
-        if (data.status === 'payout') {
-          setTimeout(() => {
-            setCurrentFightIndex(prevIndex => {
-              const nextIndex = prevIndex + 1;
-              return nextIndex < fights.length ? nextIndex : 0;
-            });
-          }, 5000);
-        }
-      }
-    });
-
-    // Subscribe to recent bets
-    const unsubscribeBets = subscribeToRecentBets(5, (bets) => {
-      if (bets) {
-        console.log('Received bets data:', bets);
-        const formattedBets = Object.values(bets).map((bet: any) => ({
-          username: bet.username || 'Anonymous',
-          amount: Number(bet.amount),
-          player: bet.playerId,
-          timestamp: bet.timestamp
-        })).sort((a, b) => b.timestamp - a.timestamp);
-        setRecentBets(formattedBets);
-      }
-    });
-
-    // Subscribe to battle history
-    const unsubscribeHistory = subscribeToBattleHistory(5, (history) => {
-      if (history) {
-        const formattedHistory = Object.entries(history).map(([id, data]: [string, any]) => ({
-          id,
-          winner: data.winner,
-          totalPool: data.totalPool,
-          timestamp: data.timestamp
-        })).sort((a, b) => b.timestamp - a.timestamp);
-        setBattleHistory(formattedHistory);
-      }
-    });
-
-    return () => {
-      unsubscribeBattle();
-      unsubscribeBets();
-      unsubscribeHistory();
-    };
-  }, []);
-
-  // Calculate pool percentages
-  const totalPool = currentBattle?.pool?.totalBets || 0;
-  const player1Percentage = totalPool > 0 
-    ? (currentBattle?.pool?.player1Total || 0) / totalPool * 100 
-    : 0;
-  const player2Percentage = totalPool > 0 
-    ? (currentBattle?.pool?.player2Total || 0) / totalPool * 100 
-    : 0;
-
-  // Format time ago
-  const formatTimeAgo = (timestamp: number) => {
-    const seconds = Math.floor((Date.now() - timestamp) / 1000);
-    if (seconds < 60) return `${seconds}s ago`;
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return `${Math.floor(hours / 24)}d ago`;
-  };
-
-  // Format SOL amount
-  const formatSOL = (amount: number) => {
-    return amount.toLocaleString(undefined, { 
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  };
-
-  // Modify handleBet function to include simulated bets in pool calculations
-  const handleBet = async (playerId: 'player1' | 'player2', amount: string) => {
-    if (!user) {
-      setError('Please wait for the game to load');
-      return;
-    }
-    setError('');
-    setIsLoading(true);
-
-    try {
-      const betAmount = parseFloat(amount);
-      
-      if (isNaN(betAmount) || betAmount <= 0) {
-        throw new Error('Please enter a valid bet amount');
-      }
-
-      await placeBet(playerId, betAmount);
-
-      // Update the current battle pool including simulated bets
-      setCurrentBattle(prev => {
-        const currentPool = prev.pool || { player1Total: 0, player2Total: 0, totalBets: 0 };
-        const updatedPool = {
-          ...currentPool,
-          [playerId === 'player1' ? 'player1Total' : 'player2Total']: 
-            (currentPool[playerId === 'player1' ? 'player1Total' : 'player2Total'] || 0) + betAmount,
-          totalBets: (currentPool.totalBets || 0) + betAmount
-        };
-
-        return {
-          ...prev,
-          pool: updatedPool
-        };
-      });
-
-      // Add to recent bets
-      const newBet = {
-        username: user.username,
-        amount: betAmount,
-        player: playerId,
-        timestamp: Date.now()
-      };
-      setRecentBets(prev => [newBet, ...prev]
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, 10));
-
-      // Reset input
-      if (playerId === 'player1') {
-        setPlayer1Amount('');
-      } else {
-        setPlayer2Amount('');
-      }
-    } catch (err: any) {
-      console.error('Error placing bet:', err);
-      setError(err.message);
-    } finally {
+    console.log('Battle state updated:', battleState);
+    if (battleState?.fighters?.current?.player1 && battleState?.fighters?.current?.player2) {
       setIsLoading(false);
     }
+  }, [battleState]);
+
+  // Redirect if no username
+  useEffect(() => {
+    if (!username) {
+      router.push('/');
+    }
+  }, [username, router]);
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (battleState?.fighters?.current?.player1 && battleState?.fighters?.current?.player2 && battleState.currentBattle > 0) {
+      const unsubscribe = tokenService.onPoolData((data) => {
+        console.log('Received pool data update:', data);
+      });
+
+      return () => {
+        if (unsubscribe) unsubscribe();
+      };
+    }
+  }, [battleState?.currentBattle]);
+
+  // Helper function to get fighter image
+  const getFighterImage = (fighter: Fighter | null, index: number): string => {
+    if (!fighter) return index === 1 ? '/FALLBACKS/atm.webp' : '/FALLBACKS/woke.webp';
+    
+    // For first match (currentBattle === 0), always use fallbacks
+    if (!battleState?.currentBattle) {
+      return index === 1 ? '/FALLBACKS/atm.webp' : '/FALLBACKS/woke.webp';
+    }
+    
+    // After first match, try to use imageUri
+    return fighter.imageUri || (index === 1 ? '/FALLBACKS/atm.webp' : '/FALLBACKS/woke.webp');
   };
 
-  const handleQuickBet = (playerId: 'player1' | 'player2', amount: number) => {
-    if (playerId === 'player1') {
-      setPlayer1Amount(amount.toString());
-    } else {
-      setPlayer2Amount(amount.toString());
+  const handleQuickBet = (amount: number) => {
+    setSelectedAmount(amount);
+    setCustomAmount('');
+  };
+
+  const handlePlayerSelect = (player: number) => {
+    setSelectedPlayer(player);
+  };
+
+  const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (/^\d*\.?\d*$/.test(value)) {
+      setCustomAmount(value);
+      setSelectedAmount(null);
     }
   };
 
-  // Add handleConnect function
-  const handleConnect = async () => {
-    try {
-      // Sign in anonymously if not already signed in
-      if (!user) {
-        const { signInAnonymously } = await import('firebase/auth');
-        const { auth } = await import('@/services/firebase');
-        await signInAnonymously(auth);
-      }
-    } catch (err: any) {
-      console.error('Error connecting wallet:', err);
-      setError(err.message);
+  const handlePlaceBet = () => {
+    const amount = selectedAmount || Number(customAmount);
+    if (amount && selectedPlayer && amount <= solBalance && !battleState.betsLocked) {
+      placeBet(amount, selectedPlayer as 1 | 2);
+      setSelectedAmount(null);
+      setSelectedPlayer(null);
+      setCustomAmount('');
     }
   };
 
-  // Add utility function for error handling
-  const handleError = (error: any, customMessage: string) => {
-    console.error(customMessage, error);
-    const errorMessage = error?.message || customMessage;
-    return errorMessage;
-  };
-
-  const copyToClipboard = async (text: string, isPlayer1: boolean) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      if (isPlayer1) {
-        setShowCopiedTooltip1(true);
-        setTimeout(() => setShowCopiedTooltip1(false), 2000);
-      } else {
-        setShowCopiedTooltip2(true);
-        setTimeout(() => setShowCopiedTooltip2(false), 2000);
-      }
-    } catch (err) {
-      console.error('Failed to copy:', err);
+  const handleViewProfile = (fighter: Fighter | null) => {
+    if (fighter) {
+      setSelectedFighter(fighter);
+      setIsModalOpen(true);
     }
   };
 
-  // Add helper function for number formatting
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(2) + 'M';
-    } else if (num >= 1000) {
-      return (num / 1000).toFixed(2) + 'K';
+  const getPhaseDisplay = () => {
+    switch (battleState.phase) {
+      case 'BETTING':
+        return (
+          <div className="flex items-center gap-2 text-green-400">
+            <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></span>
+            BETS OPEN ({battleState.timeRemaining}s)
+          </div>
+        );
+      case 'BATTLE':
+        return (
+          <div className="flex items-center gap-2 text-red-400">
+            <span className="h-2 w-2 rounded-full bg-red-400 animate-pulse"></span>
+            BATTLE IN PROGRESS - Round {battleState.currentRound}/3 ({battleState.timeRemaining}s)
+          </div>
+        );
+      case 'PAYOUT':
+        return (
+          <div className="flex items-center gap-2 text-yellow-400">
+            <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></span>
+            PAYOUT PHASE ({battleState.timeRemaining}s)
+          </div>
+        );
     }
-    return num.toFixed(2);
+  };
+
+  const getWinChance = (player: number) => {
+    const { player1Pool, player2Pool, totalPool } = battleState;
+    if (totalPool === 0) return 50;
+    return player === 1 
+      ? (player1Pool / totalPool) * 100 
+      : (player2Pool / totalPool) * 100;
+  };
+
+  // Add a function to display battle outcome
+  const renderBattleOutcome = () => {
+    if (battleState.phase !== 'PAYOUT' || !battleState.battleOutcome) return null;
+    
+    const winner = battleState.battleOutcome.winner;
+    const winnerFighter = winner === 1 
+      ? battleState.fighters.current.player1 
+      : battleState.fighters.current.player2;
+    
+    if (!winnerFighter) return null;
+
+    const winnerImage = getFighterImage(winnerFighter, winner);
+
+    return (
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 rounded-lg">
+        <div className="text-center">
+          <h3 className="text-2xl font-bold text-white mb-2">Battle Completed!</h3>
+          
+          <div className="mb-4">
+            <div className="text-lg text-cyan-400 font-medium">Winner</div>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <img 
+                src={winnerImage}
+                alt={winnerFighter.name} 
+                className="h-8 w-8 rounded-full object-cover"
+              />
+              <span className="text-xl font-bold text-white">{winnerFighter.name}</span>
+              <span className="text-gray-400">({winnerFighter.symbol})</span>
+            </div>
+          </div>
+          
+          <div className="text-lg text-green-400 font-medium">
+            Total Payout: {battleState.battleOutcome.winningAmount.toFixed(2)} SOL
+          </div>
+          
+          <div className="mt-4 text-sm text-gray-400">
+            Next battle starting in {battleState.timeRemaining} seconds...
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-black p-6">
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="text-center">
+            <div className="mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-cyan-500 mx-auto"></div>
+            <p className="text-white text-lg">Loading battle arena...</p>
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
-      {/* Header */}
-      <header className="bg-black border-b border-white/10">
-        <div className="max-w-[2400px] mx-auto flex items-center px-8 py-6 relative">
-          {/* Left side - Balance */}
-          <div className="flex items-center space-x-3 text-white bg-black/40 px-8 py-4 rounded-xl border border-white/10">
-            <TrophyIcon className="w-7 h-7 text-[#00FFA3]" />
-            <span className="font-bold text-2xl">{user?.solBalance.toFixed(2)} SOL</span>
-          </div>
-
-          {/* Centered Logo */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <Link href="/" className="relative h-24 w-80 block transition-transform hover:scale-105">
-              <Image
-                src="/images/DraftKings-logo-font.png"
-                alt="Salty Sol"
-                fill
-                style={{ objectFit: 'contain' }}
-                priority
-              />
-            </Link>
-          </div>
-
-          {/* Right side - Username */}
-          <div className="ml-auto">
-            <div className="flex items-center space-x-3 text-white bg-black/40 px-6 py-3 rounded-xl border border-white/10">
-              <UserGroupIcon className="w-6 h-6 text-[#00FFA3]" />
-              <span className="font-bold text-lg">{user?.username || 'Loading...'}</span>
-            </div>
+    <main className="min-h-screen bg-black p-6">
+      {/* Header with Phase Display */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex-1">
+          <span className="rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 px-2.5 py-0.5 text-sm text-white">
+            {username} {isGuest && <span className="text-xs opacity-70">(Guest)</span>}
+          </span>
+        </div>
+        <div className="flex-1 flex justify-center">
+          <div className="h-16 w-48 relative">
+            <Image
+              src="/images/png-clipart-logo-draftkings-brand-font-white-king-of-spades-white-text.png"
+              alt="Salty Sol Logo"
+              fill
+              style={{ objectFit: 'contain' }}
+              priority
+            />
           </div>
         </div>
-      </header>
-
-      {/* Main Content - Now with 3 columns */}
-      <div className="flex flex-1">
-        {/* Left Side - Betting Pool Info */}
-        <div className="w-[400px] bg-black border-r border-white/10 flex flex-col">
-          {/* Pool Header */}
-          <div className="p-6 border-b border-white/10 bg-gradient-to-r from-black to-black/40">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-[#FFD700]/10 rounded-lg">
-                  <TrophyIcon className="w-6 h-6 text-[#FFD700]" />
-                </div>
-                <div>
-                  <h2 className="font-bold text-white text-xl">Current Pool</h2>
-                  <p className="text-white/60 text-sm">Round #420</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-[#00FFA3] font-bold text-2xl">
-                  {formatSOL(totalPool)} SOL
-                </span>
-                <p className="text-white/60 text-sm">Total Prize</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-              <div className="text-center">
-                <span className="text-white/60 text-sm">Total Bets</span>
-                <p className="text-white font-bold text-lg">{recentBets.length}</p>
-              </div>
-              <div className="h-8 w-px bg-white/10"></div>
-              <div className="text-center">
-                <span className="text-white/60 text-sm">Time Left</span>
-                <p className="text-white font-bold text-lg">02:45</p>
-              </div>
-              <div className="h-8 w-px bg-white/10"></div>
-              <div className="text-center">
-                <span className="text-white/60 text-sm">Round</span>
-                <p className="text-white font-bold text-lg">#420</p>
-              </div>
-            </div>
+        <div className="flex-1 flex items-center justify-end gap-4">
+          {/* Social Links */}
+          <div className="flex items-center gap-3">
+            <a 
+              href="https://x.com/BetSaltySol" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </a>
+            <a 
+              href="https://t.me/betsaltysol" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+              </svg>
+            </a>
           </div>
-
-          {/* Recent Bets */}
-          <div className="flex-grow overflow-auto">
-            <div className="p-6 border-b border-white/10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-white/5 rounded-lg">
-                    <UserGroupIcon className="w-5 h-5 text-[#00FFA3]" />
-                  </div>
-                  <h3 className="font-bold text-white">Recent Bets</h3>
-                </div>
-                <button className="text-[#00FFA3] text-sm hover:underline">
-                  View All
-                </button>
-              </div>
-              <div className="space-y-3">
-                {recentBets.map((bet, index) => (
-                  <div 
-                    key={`${bet.timestamp}-${index}`}
-                    className="flex items-center justify-between p-3 bg-gradient-to-r from-white/5 to-transparent rounded-xl hover:from-white/10 transition-all duration-200 group"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#00FFA3] to-[#03E1FF] p-[2px]">
-                        <div className="w-full h-full bg-black rounded-[10px] flex items-center justify-center">
-                          <span className="text-[#00FFA3] font-bold">
-                            {(bet.username || 'A').charAt(0).toUpperCase()}
-                          </span>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-white font-medium group-hover:text-[#00FFA3] transition-colors">
-                          {bet.username}
-                        </div>
-                        <div className="text-white/60 text-sm flex items-center space-x-1">
-                          <span>Bet on</span>
-                          <span className={bet.player === 'player1' ? 'text-[#00FFA3]' : 'text-[#03E1FF]'}>
-                            Player {bet.player === 'player1' ? '1' : '2'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[#00FFA3] font-bold">+{formatSOL(bet.amount)} SOL</div>
-                      <div className="text-white/40 text-sm">{formatTimeAgo(bet.timestamp)}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Pool Distribution */}
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-white/5 rounded-lg">
-                    <svg className="w-5 h-5 text-[#00FFA3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <h3 className="font-bold text-white">Pool Distribution</h3>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-white/5 p-4 rounded-xl">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white font-medium">Player 1 Pool</span>
-                    <span className="text-[#00FFA3]">
-                      {formatSOL(currentBattle?.pool?.player1Total || 0)} SOL
-                    </span>
-                  </div>
-                  <div className="h-3 bg-black/40 rounded-full overflow-hidden p-[2px]">
-                    <div 
-                      className="h-full bg-gradient-to-r from-[#00FFA3] to-[#03E1FF] rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `${player1Percentage}%` }}
-                    >
-                      <div className="w-full h-full bg-[rgba(255,255,255,0.2)]"></div>
-                    </div>
-                  </div>
-                  <div className="mt-1 text-right text-white/60 text-sm">
-                    {player1Percentage.toFixed(1)}%
-                  </div>
-                </div>
-
-                <div className="bg-white/5 p-4 rounded-xl">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white font-medium">Player 2 Pool</span>
-                    <span className="text-[#03E1FF]">
-                      {formatSOL(currentBattle?.pool?.player2Total || 0)} SOL
-                    </span>
-                  </div>
-                  <div className="h-3 bg-black/40 rounded-full overflow-hidden p-[2px]">
-                    <div 
-                      className="h-full bg-gradient-to-r from-[#03E1FF] to-[#00FFA3] rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `${player2Percentage}%` }}
-                    >
-                      <div className="w-full h-full bg-[rgba(255,255,255,0.2)]"></div>
-                    </div>
-                  </div>
-                  <div className="mt-1 text-right text-white/60 text-sm">
-                    {player2Percentage.toFixed(1)}%
-                  </div>
-                </div>
-              </div>
-            </div>
+          {getPhaseDisplay()}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-400">Balance:</span>
+            <span className="font-mono text-lg text-white">{solBalance.toFixed(2)} SOL</span>
           </div>
-        </div>
-
-        {/* Center - Main Content */}
-        <div className="flex-grow bg-black">
-          {/* Battle Arena */}
-          <div className="relative h-full flex flex-col">
-            <div className="flex-grow bg-black relative">
-              <BattleGame />
-              
-              {/* Live Indicator Overlay */}
-              <div className="absolute top-4 left-4 z-10">
-                <div className="flex items-center space-x-2 bg-black/60 px-3 py-1.5 rounded-lg backdrop-blur-sm">
-                  <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                  <span className="text-white font-medium text-sm">LIVE</span>
-                </div>
-              </div>
-
-              {/* Video Controls Overlay */}
-              <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black to-transparent p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <button className="text-white hover:text-[#00FFA3] transition-colors">
-                      <PlayIcon className="w-6 h-6" />
-                    </button>
-                    <div className="flex items-center space-x-2">
-                      <SpeakerWaveIcon className="w-6 h-6 text-white" />
-                      <div className="w-20 h-1 bg-white/30 rounded-full overflow-hidden">
-                        <div className="w-3/4 h-full bg-[#00FFA3] rounded-full"></div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <button className="text-white hover:text-[#00FFA3] transition-colors">
-                      <Cog6ToothIcon className="w-6 h-6" />
-                    </button>
-                    <button className="text-white hover:text-[#00FFA3] transition-colors">
-                      <ArrowsPointingOutIcon className="w-6 h-6" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Battle Info */}
-            <div className="p-8 bg-black border-t border-white/10">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-4">
-                  <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-white/10">
-                    <Image
-                      src="/images/s.png"
-                      alt="Streamer Profile"
-                      fill
-                      style={{ objectFit: 'cover' }}
-                      className="rounded-full"
-                    />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-white mb-2">Current Battle #420</h1>
-                    <div className="flex items-center space-x-4 text-sm">
-                      <span className="flex items-center text-white">
-                        <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
-                        LIVE
-                      </span>
-                      <span className="text-white/60">1,234 watching</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex space-x-3">
-                  <button className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-                    <ShareIcon className="w-5 h-5 text-white" />
-                  </button>
-                  <button className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-                    <EllipsisHorizontalIcon className="w-5 h-5 text-white" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Battle Stats */}
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-black border border-white/10 p-6 rounded-xl">
-                  <div className="text-center">
-                    <div className="text-center">
-                      <div className="relative inline-flex items-center space-x-3 mb-2">
-                        <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 overflow-hidden">
-                          <div className="w-full h-full flex items-center justify-center">
-                            {currentFighters.player1.image ? (
-                              <Image
-                                src={currentFighters.player1.image}
-                                alt={currentFighters.player1.name}
-                                width={48}
-                                height={48}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-white/30 text-xs">No Image</span>
-                            )}
-                          </div>
-                        </div>
-                        <div 
-                          onClick={() => copyToClipboard('0x1234567890abcdef1234567890abcdef12345678', true)}
-                          className="text-2xl font-bold text-white mb-4 flex items-center justify-center space-x-2 cursor-pointer group"
-                        >
-                          <span>${currentFighters.player1.name || 'Unknown'}</span>
-                          <svg 
-                            className="w-5 h-5 text-white/40 group-hover:text-[#00FFA3] transition-colors" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                          </svg>
-                          {showCopiedTooltip1 && (
-                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs py-1 px-2 rounded">
-                              Copied!
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 mb-4 text-sm">
-                      <div className="bg-white/5 p-2.5 rounded-lg">
-                        <div className="text-white/60 mb-0.5">Total Bets</div>
-                        <div className="text-white font-bold">
-                          {formatSOL(currentBattle?.pool?.player1Total || 0)} SOL
-                        </div>
-                      </div>
-                      <div className="bg-white/5 p-2.5 rounded-lg">
-                        <div className="text-white/60 mb-0.5">Win Chance</div>
-                        <div className="text-[#00FFA3] font-bold">
-                          {totalPool > 0 
-                            ? ((currentBattle?.pool?.player1Total || 0) / totalPool * 100).toFixed(1)
-                            : '50.0'}%
-                        </div>
-                      </div>
-                      <div className="bg-white/5 p-2.5 rounded-lg">
-                        <div className="text-white/60 mb-0.5 flex items-center justify-between">
-                          <span>Market Cap</span>
-                          <span className="flex items-center">
-                            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse mr-0.5"></span>
-                            <span className="text-xs text-red-500">LIVE</span>
-                          </span>
-                        </div>
-                        <div className="text-white font-bold">${formatNumber(currentFighters.player1.marketCap)}</div>
-                        <div className="text-xs text-white/40 mt-0.5">Created {currentFighters.player1.createdDays} days ago</div>
-                      </div>
-                      <div className="bg-white/5 p-2.5 rounded-lg col-span-3">
-                        <div className="text-white/60 mb-1.5 flex items-center justify-between">
-                          <span>Holders</span>
-                          <span className="flex items-center">
-                            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse mr-0.5"></span>
-                            <span className="text-xs text-red-500">LIVE</span>
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <div>
-                            <div className="text-white font-bold">{formatNumber(currentFighters.player1.holders)}</div>
-                            <div className="text-xs text-white/40">Total Holders</div>
-                          </div>
-                          <div>
-                            <div className="text-[#00FFA3] font-bold">+{currentFighters.player1.buys24h}</div>
-                            <div className="text-xs text-white/40">Buys (24h)</div>
-                          </div>
-                          <div>
-                            <div className="text-red-500 font-bold">-{currentFighters.player1.sells24h}</div>
-                            <div className="text-xs text-white/40">Sells (24h)</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between text-sm text-white/60 mb-2">
-                        <span>Betting Amount</span>
-                        <span>Balance: {user?.solBalance?.toFixed(2) || '0.00'} SOL</span>
-                      </div>
-                      <div className="relative">
-                        <input 
-                          type="number"
-                          value={player1Amount}
-                          onChange={(e) => setPlayer1Amount(e.target.value)}
-                          placeholder="Enter amount"
-                          min="1"
-                          className="w-full px-4 py-2 bg-black/50 border-2 border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-[#00FFA3] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60">SOL</span>
-                      </div>
-                      {/* Add potential winnings */}
-                      {player1Amount && (
-                        <div className="mt-2 text-sm text-[#00FFA3]">
-                          Potential Win: {formatSOL(Number(player1Amount) * 2)} SOL
-                        </div>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 mb-4">
-                      <button onClick={() => handleQuickBet('player1', 10)} className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors">
-                        +10
-                      </button>
-                      <button onClick={() => handleQuickBet('player1', 50)} className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors">
-                        +50
-                      </button>
-                      <button onClick={() => handleQuickBet('player1', 100)} className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors">
-                        +100
-                      </button>
-                    </div>
-                    <button 
-                      onClick={() => handleBet('player1', player1Amount)}
-                      disabled={isLoading || !player1Amount || !user}
-                      className="w-full py-3 bg-gradient-to-r from-[#00FFA3] to-[#03E1FF] text-black font-bold hover:from-[#00FFA3]/90 hover:to-[#03E1FF]/90 transition-all duration-200 rounded-xl border-2 border-transparent hover:border-white disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? 'Placing Bet...' : 'Place Bet'}
-                    </button>
-                  </div>
-                </div>
-                <div className="bg-black border border-white/10 p-6 rounded-xl">
-                  <div className="text-center">
-                    <div className="text-center">
-                      <div className="relative inline-flex items-center space-x-3 mb-2">
-                        <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 overflow-hidden">
-                          <div className="w-full h-full flex items-center justify-center">
-                            {currentFighters.player2.image ? (
-                              <Image
-                                src={currentFighters.player2.image}
-                                alt={currentFighters.player2.name}
-                                width={48}
-                                height={48}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <span className="text-white/30 text-xs">No Image</span>
-                            )}
-                          </div>
-                        </div>
-                        <div 
-                          onClick={() => copyToClipboard('0xabcdef1234567890abcdef1234567890abcdef12', false)}
-                          className="text-2xl font-bold text-white mb-4 flex items-center justify-center space-x-2 cursor-pointer group"
-                        >
-                          <span>${currentFighters.player2.name || 'Unknown'}</span>
-                          <svg 
-                            className="w-5 h-5 text-white/40 group-hover:text-[#00FFA3] transition-colors" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
-                          </svg>
-                          {showCopiedTooltip2 && (
-                            <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black/90 text-white text-xs py-1 px-2 rounded">
-                              Copied!
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 mb-4 text-sm">
-                      <div className="bg-white/5 p-2.5 rounded-lg">
-                        <div className="text-white/60 mb-0.5">Total Bets</div>
-                        <div className="text-white font-bold">
-                          {formatSOL(currentBattle?.pool?.player2Total || 0)} SOL
-                        </div>
-                      </div>
-                      <div className="bg-white/5 p-2.5 rounded-lg">
-                        <div className="text-white/60 mb-0.5">Win Chance</div>
-                        <div className="text-[#00FFA3] font-bold">
-                          {totalPool > 0 
-                            ? ((currentBattle?.pool?.player2Total || 0) / totalPool * 100).toFixed(1)
-                            : '50.0'}%
-                        </div>
-                      </div>
-                      <div className="bg-white/5 p-2.5 rounded-lg">
-                        <div className="text-white/60 mb-0.5 flex items-center justify-between">
-                          <span>Market Cap</span>
-                          <span className="flex items-center">
-                            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse mr-0.5"></span>
-                            <span className="text-xs text-red-500">LIVE</span>
-                          </span>
-                        </div>
-                        <div className="text-white font-bold">${formatNumber(currentFighters.player2.marketCap)}</div>
-                        <div className="text-xs text-white/40 mt-0.5">Created {currentFighters.player2.createdDays} days ago</div>
-                      </div>
-                      <div className="bg-white/5 p-2.5 rounded-lg col-span-3">
-                        <div className="text-white/60 mb-1.5 flex items-center justify-between">
-                          <span>Holders</span>
-                          <span className="flex items-center">
-                            <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse mr-0.5"></span>
-                            <span className="text-xs text-red-500">LIVE</span>
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-1.5">
-                          <div>
-                            <div className="text-white font-bold">{formatNumber(currentFighters.player2.holders)}</div>
-                            <div className="text-xs text-white/40">Total Holders</div>
-                          </div>
-                          <div>
-                            <div className="text-[#00FFA3] font-bold">+{currentFighters.player2.buys24h}</div>
-                            <div className="text-xs text-white/40">Buys (24h)</div>
-                          </div>
-                          <div>
-                            <div className="text-red-500 font-bold">-{currentFighters.player2.sells24h}</div>
-                            <div className="text-xs text-white/40">Sells (24h)</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between text-sm text-white/60 mb-2">
-                        <span>Betting Amount</span>
-                        <span>Balance: {user?.solBalance?.toFixed(2) || '0.00'} SOL</span>
-                      </div>
-                      <div className="relative">
-                        <input 
-                          type="number"
-                          value={player2Amount}
-                          onChange={(e) => setPlayer2Amount(e.target.value)}
-                          placeholder="Enter amount"
-                          min="1"
-                          className="w-full px-4 py-2 bg-black/50 border-2 border-white/10 rounded-lg text-white placeholder-white/30 focus:outline-none focus:border-[#00FFA3] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60">SOL</span>
-                      </div>
-                      {/* Add potential winnings */}
-                      {player2Amount && (
-                        <div className="mt-2 text-sm text-[#00FFA3]">
-                          Potential Win: {formatSOL(Number(player2Amount) * 2)} SOL
-                        </div>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 mb-4">
-                      <button onClick={() => handleQuickBet('player2', 10)} className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors">
-                        +10
-                      </button>
-                      <button onClick={() => handleQuickBet('player2', 50)} className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors">
-                        +50
-                      </button>
-                      <button onClick={() => handleQuickBet('player2', 100)} className="px-2 py-1.5 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors">
-                        +100
-                      </button>
-                    </div>
-                    <button 
-                      onClick={() => handleBet('player2', player2Amount)}
-                      disabled={isLoading || !player2Amount || !user}
-                      className="w-full py-3 bg-gradient-to-r from-[#00FFA3] to-[#03E1FF] text-black font-bold hover:from-[#00FFA3]/90 hover:to-[#03E1FF]/90 transition-all duration-200 rounded-xl border-2 border-transparent hover:border-white disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isLoading ? 'Placing Bet...' : 'Place Bet'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side - Live Chat */}
-        <div className="w-[400px] bg-black border-l border-white/10">
-          <ChatBox />
         </div>
       </div>
 
-      {error && (
-        <p className="mt-2 text-red-500 text-sm text-center">{error}</p>
-      )}
-    </div>
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-12 gap-4">
+        {/* Left Column - Battle Arena */}
+        <div className="col-span-8">
+          {/* Battle Arena Card */}
+          <div className="container-card mb-4 rounded-lg overflow-hidden">
+            <div className="header-section flex-between">
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <h2 className="text-base font-bold text-white">Current Battle</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1 rounded bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-400">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"></span>
+                  LIVE
+                </span>
+                <span className="rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-gray-400">
+                  {Math.floor(battleState.timeRemaining / 60)}:{(battleState.timeRemaining % 60).toString().padStart(2, '0')}
+                </span>
+              </div>
+            </div>
+
+            {/* Battle Content */}
+            <div className="p-3">
+              {/* Players Info */}
+              <div className="mb-3 grid grid-cols-2 gap-3">
+                {[
+                  { fighter: battleState.fighters.current.player1, index: 1 },
+                  { fighter: battleState.fighters.current.player2, index: 2 }
+                ].map(({ fighter, index }) => (
+                  <div key={index} className="rounded-lg border border-gray-800 bg-gray-950 p-3">
+                    {fighter ? (
+                      <>
+                        <div className="mb-2 flex items-center gap-2">
+                          <img 
+                            src={getFighterImage(fighter, index)}
+                            alt={fighter.name} 
+                            className="h-6 w-6 rounded-full object-cover"
+                          />
+                          <button 
+                            onClick={() => fighter.contractAddress && navigator.clipboard.writeText(fighter.contractAddress)}
+                            className="text-base font-bold text-white hover:text-cyan-400 transition-colors"
+                          >
+                            {fighter.name}
+                            <span className="text-sm font-normal text-gray-500 ml-1">
+                              ({fighter.symbol})
+                            </span>
+                          </button>
+                        </div>
+                        <div className="space-y-1.5 text-sm text-gray-400">
+                          <div className="flex justify-between">
+                            <span>Win Chance</span>
+                            <span className="text-green-400">
+                              {getWinChance(index).toFixed(1)}%
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Market Cap</span>
+                            <span className="text-white">
+                              ${tokenService.formatNumber(fighter.marketCap || 0)}
+                            </span>
+                          </div>
+                          <button 
+                            onClick={() => handleViewProfile(fighter)}
+                            className="w-full mt-1 flex items-center justify-center gap-1 rounded border border-gray-800 bg-gray-900 px-2 py-1 text-xs text-cyan-400 hover:bg-gray-800 hover:text-cyan-300 transition-colors"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+                              <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                              <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                            </svg>
+                            View Fighter Profile
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center h-24">
+                        <div className="animate-pulse text-gray-500">Loading fighter data...</div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Battle Arena - Phaser Game Container */}
+              <div 
+                id="game-container"
+                className="relative w-full aspect-[16/9] rounded-lg overflow-hidden"
+                style={{
+                  minHeight: '400px',
+                  maxHeight: '600px'
+                }}
+              >
+                {/* Battle outcome overlay */}
+                {renderBattleOutcome()}
+                
+                {/* Phaser Game */}
+                <BattleGame />
+              </div>
+            </div>
+
+            {/* Battle Controls */}
+            <div className="flex items-center justify-between border-t border-gray-800 p-3">
+              <div className="flex items-center gap-2">
+                <button className="flex items-center gap-1 rounded-full bg-gray-800 px-3 py-0.5 text-sm font-medium text-white hover:bg-gray-700">
+                  Details
+                </button>
+                <button className="flex items-center gap-1 rounded-full bg-gray-800 px-3 py-0.5 text-sm font-medium text-white hover:bg-gray-700">
+                  Share
+                </button>
+              </div>
+              <button className="flex items-center gap-1 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-0.5 text-sm font-medium text-white hover:opacity-90">
+                Place Bet
+              </button>
+            </div>
+          </div>
+
+          {/* Pool Distribution and Leaderboard */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Pool Distribution */}
+            <div className="container-card">
+              <div className="header-section flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-6 w-6 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-base font-bold text-white">Pool Distribution</h3>
+                </div>
+                <span className="rounded-full bg-gray-900 px-2 py-0.5 text-xs font-medium text-gray-400">Live</span>
+              </div>
+              <div className="p-4">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-base text-gray-400">Total Pool</span>
+                    <span className="font-mono text-xl font-bold text-white">{battleState.totalPool.toFixed(2)} SOL</span>
+                  </div>
+                  
+                  {/* Player 1 Pool */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <button 
+                          onClick={() => battleState.fighters.current.player1?.contractAddress && 
+                            navigator.clipboard.writeText(battleState.fighters.current.player1.contractAddress)}
+                          className="text-sm text-gray-400 hover:text-cyan-400 transition-colors text-left"
+                        >
+                          {battleState.fighters.current.player1?.name || 'Loading...'}
+                          <span className="text-xs text-gray-500 ml-1">
+                            ({battleState.fighters.current.player1?.symbol || '...'})
+                          </span>
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-white">{battleState.player1Pool.toFixed(2)} SOL</span>
+                        <span className="text-xs text-cyan-400">
+                          ({battleState.totalPool > 0 ? ((battleState.player1Pool / battleState.totalPool) * 100).toFixed(1) : '50'}%)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-gray-800 overflow-hidden">
+                      <div 
+                        className="h-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500"
+                        style={{ 
+                          width: battleState.totalPool > 0 
+                            ? `${(battleState.player1Pool / battleState.totalPool) * 100}%` 
+                            : '50%' 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Player 2 Pool */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <button 
+                          onClick={() => battleState.fighters.current.player2?.contractAddress && 
+                            navigator.clipboard.writeText(battleState.fighters.current.player2.contractAddress)}
+                          className="text-sm text-gray-400 hover:text-cyan-400 transition-colors text-left"
+                        >
+                          {battleState.fighters.current.player2?.name || 'Loading...'}
+                          <span className="text-xs text-gray-500 ml-1">
+                            ({battleState.fighters.current.player2?.symbol || '...'})
+                          </span>
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-white">{battleState.player2Pool.toFixed(2)} SOL</span>
+                        <span className="text-xs text-cyan-400">
+                          ({battleState.totalPool > 0 ? ((battleState.player2Pool / battleState.totalPool) * 100).toFixed(1) : '50'}%)
+                        </span>
+                      </div>
+                    </div>
+                    <div className="h-2.5 rounded-full bg-gray-800 overflow-hidden">
+                      <div 
+                        className="h-full rounded-full bg-gradient-to-r from-yellow-500 to-orange-500"
+                        style={{ 
+                          width: battleState.totalPool > 0 
+                            ? `${(battleState.player2Pool / battleState.totalPool) * 100}%` 
+                            : '50%' 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Leaderboard */}
+            <div className="container-card">
+              <Leaderboard />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Betting Panel and Chat */}
+        <div className="col-span-4 space-y-4">
+          {/* Betting Panel */}
+          <div className="container-card">
+            <div className="header-section">
+              <h3 className="text-base font-bold text-white">
+                {battleState.phase === 'BETTING' ? 'Place Your Bet' : 'Betting Closed'}
+              </h3>
+            </div>
+            {isGuest && (
+              <div className="bg-blue-900/20 border border-blue-800 p-2.5 text-sm text-blue-400">
+                You're in guest mode. Your bets are for fun only.
+              </div>
+            )}
+            <div className="p-4 space-y-4">
+              {/* Player Selection */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { coin: battleState.fighters.current.player1, player: 1 },
+                  { coin: battleState.fighters.current.player2, player: 2 }
+                ].map(({ coin, player }) => (
+                  <button
+                    key={player}
+                    onClick={() => handlePlayerSelect(player)}
+                    disabled={battleState.phase !== 'BETTING'}
+                    className={`w-full px-3 py-1.5 rounded border ${
+                      selectedPlayer === player
+                        ? 'bg-cyan-900/50 border-cyan-500 text-cyan-400'
+                        : 'bg-gray-900 hover:bg-gray-800 border-gray-800 text-white'
+                    } ${battleState.phase !== 'BETTING' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span>{coin?.name || 'TBD'}</span>
+                      <span className="text-xs text-gray-500">
+                        {coin?.symbol || '...'}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Bet Amount Input */}
+              <div className="relative">
+                <input
+                  type="number"
+                  value={customAmount}
+                  onChange={handleCustomAmountChange}
+                  disabled={battleState.phase !== 'BETTING'}
+                  placeholder="Enter amount"
+                  className="w-full bg-gray-900/50 border border-gray-800 rounded px-3 py-1.5 text-center text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">SOL</span>
+              </div>
+
+              {/* Quick Bet Buttons */}
+              <div className="grid grid-cols-4 gap-2">
+                {[0.25, 0.5, 1, 2].map((amount) => (
+                  <button
+                    key={amount}
+                    onClick={() => handleQuickBet(amount)}
+                    disabled={battleState.phase !== 'BETTING'}
+                    className="bg-gray-900 hover:bg-gray-800 text-white px-2 py-1 rounded text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    +{amount}
+                  </button>
+                ))}
+              </div>
+
+              {/* Potential Payout */}
+              {selectedPlayer && (selectedAmount || customAmount) && (
+                <div className="bg-gray-900/50 border border-gray-800 rounded p-2 text-center">
+                  <div className="text-sm text-gray-400">Potential Payout</div>
+                  <div className="text-lg font-mono text-green-400">
+                    {calculatePotentialPayout(
+                      selectedAmount || Number(customAmount), 
+                      selectedPlayer as 1 | 2
+                    ).toFixed(2)} SOL
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {selectedPlayer === 1 ? 
+                      `${battleState.fighters.current.player1?.name || 'Player 1'}` : 
+                      `${battleState.fighters.current.player2?.name || 'Player 2'}`} Win Chance: 
+                    {getWinChance(selectedPlayer).toFixed(1)}%
+                  </div>
+                </div>
+              )}
+
+              {/* Place Bet Button */}
+              <button
+                onClick={handlePlaceBet}
+                disabled={
+                  battleState.phase !== 'BETTING' ||
+                  !selectedPlayer ||
+                  (!selectedAmount && !customAmount) ||
+                  (selectedAmount || Number(customAmount)) > solBalance
+                }
+                className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:opacity-90 text-white py-1.5 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {battleState.phase === 'BETTING' ? 'Place Bet' : 'Betting Closed'}
+              </button>
+
+              {/* Balance */}
+              <div className="text-center text-sm">
+                <span className="text-gray-400">Balance: </span>
+                <span className="text-white font-medium">{solBalance.toFixed(2)} SOL</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat Box */}
+          <div className="flex-1 h-[calc(100vh-500px)]">
+            <ChatBox />
+          </div>
+        </div>
+      </div>
+      {/* Modal */}
+      <FighterModal
+        fighter={selectedFighter}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        battleState={battleState}
+      />
+    </main>
   );
 } 

@@ -1,187 +1,182 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { subscribeToChatMessages, sendChatMessage } from '../services/firebase';
+import { useChat } from '@/contexts/ChatContext';
+import { useUser } from '@/contexts/UserContext';
+import { useBattle } from '@/contexts/BattleContext';
+import { useFirebase } from '@/contexts/FirebaseContext';
+import { chatService } from '@/services/chatService';
 
-interface ChatMessage {
-  id: string;
-  username: string;
-  message: string;
-  timestamp: any;
-}
-
-export default function ChatBox() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [tempUsername, setTempUsername] = useState('');
-  const [username, setUsername] = useState('');
-  const [isSending, setIsSending] = useState(false);
-  const [error, setError] = useState('');
+export const ChatBox = () => {
+  const { messages: chatMessages, sendMessage, isLoading, error } = useChat();
+  const { username, isGuest } = useUser();
+  const { user } = useFirebase();
+  const { battleState } = useBattle();
+  const [inputValue, setInputValue] = useState('');
+  const [chatUsername, setChatUsername] = useState('');
+  const [isUsernameSet, setIsUsernameSet] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevBetsLengthRef = useRef(0);
 
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    const unsubscribe = subscribeToChatMessages(50, (newMessages) => {
-      const sortedMessages = newMessages.sort((a, b) => b.timestamp - a.timestamp);
-      setMessages(sortedMessages);
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
 
-    return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
-    };
-  }, []);
+  // Check if username is already set from user store
+  useEffect(() => {
+    if (username && !isGuest) {
+      setIsUsernameSet(true);
+      setChatUsername(username);
+    }
+  }, [username, isGuest]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!username || !newMessage.trim()) return;
+  // Monitor fake gambler bets and add chat messages
+  useEffect(() => {
+    if (!battleState?.fakeGamblers?.activeBets) return;
+    
+    const currentBetsLength = battleState.fakeGamblers.activeBets.length;
+    
+    // Only process new bets
+    if (currentBetsLength > prevBetsLengthRef.current) {
+      const newBets = battleState.fakeGamblers.activeBets.slice(prevBetsLengthRef.current);
+      
+      // Add chat messages for new bets
+      newBets.forEach(bet => {
+        const fighterName = bet.player === 1 
+          ? battleState.fighters.current.player1?.name || 'Player 1'
+          : battleState.fighters.current.player2?.name || 'Player 2';
+          
+        chatService.sendMessage(bet.username, `I'm betting ${bet.amount.toLocaleString()} SOL on ${fighterName}! 🚀`).catch(console.error);
+      });
+      
+      prevBetsLengthRef.current = currentBetsLength;
+    }
+    
+    // Add system messages for phase changes
+    if (battleState.phase === 'BATTLE' && battleState.timeRemaining === 81) {
+      chatService.sendSystemMessage('🔥 Battle has started! No more bets allowed.').catch(console.error);
+    } else if (battleState.phase === 'PAYOUT' && battleState.timeRemaining === 15) {
+      const winner = battleState.battleOutcome?.winner === 1 
+        ? battleState.fighters.current.player1?.name || 'Player 1'
+        : battleState.fighters.current.player2?.name || 'Player 2';
+        
+      chatService.sendSystemMessage(`🏆 Battle ended! ${winner} is the winner! Payouts: ${battleState.battleOutcome?.winningAmount.toLocaleString()} SOL`).catch(console.error);
+    } else if (battleState.phase === 'BETTING' && battleState.timeRemaining === 20 && battleState.currentBattle > 0) {
+      // Reset the bets counter when a new battle starts
+      prevBetsLengthRef.current = 0;
+      chatService.sendSystemMessage('🆕 New battle starting! Place your bets now.').catch(console.error);
+    }
+  }, [battleState]);
 
-    setIsSending(true);
-    setError('');
+  const handleSendMessage = async () => {
+    if (!inputValue.trim() || !username || !user) return;
     
     try {
-      await sendChatMessage(newMessage.trim(), username);
-      setNewMessage('');
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    } catch (error: any) {
+      await sendMessage(inputValue);
+      setInputValue('');
+    } catch (error) {
       console.error('Error sending message:', error);
-      setError(error.message || 'Failed to send message. Please try again.');
-    } finally {
-      setIsSending(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      if (newMessage.trim()) {
-        handleSendMessage(e);
-      }
-    }
-  };
-
-  const handleUsernameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (tempUsername.trim().length >= 3) {
-      setUsername(tempUsername.trim());
-    }
-  };
-
-  const handleUsernameKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      e.preventDefault();
-      if (tempUsername.trim().length >= 3) {
-        setUsername(tempUsername.trim());
-      }
+      handleSendMessage();
     }
   };
 
-  // If username is not set, show username input
-  if (!username) {
-    return (
-      <div className="h-full bg-black/80 p-4 flex flex-col items-center justify-center">
-        <div className="w-full max-w-md">
-          <h2 className="text-[#00FFA3] text-xl mb-4 text-center">Enter your username to chat</h2>
-          <form onSubmit={handleUsernameSubmit} className="space-y-4">
+  const handleSetUsername = () => {
+    if (chatUsername.trim().length >= 3) {
+      setIsUsernameSet(true);
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-col rounded-lg border border-gray-800 bg-black">
+      <div className="border-b border-gray-800 p-2">
+        <h3 className="text-sm font-bold text-white">Live Chat</h3>
+      </div>
+      
+      {!isUsernameSet && isGuest ? (
+        <div className="flex flex-1 flex-col items-center justify-center p-4">
+          <p className="mb-2 text-center text-sm text-gray-400">Enter your username to chat</p>
+          <div className="w-full">
             <input
               type="text"
-              value={tempUsername}
-              onChange={(e) => setTempUsername(e.target.value)}
-              onKeyPress={handleUsernameKeyPress}
+              value={chatUsername}
+              onChange={(e) => setChatUsername(e.target.value)}
               placeholder="Enter username (min 3 characters)"
-              className="w-full bg-black/50 text-white px-4 py-2 rounded border border-[#00FFA3]/30 
-                       focus:outline-none focus:border-[#00FFA3] transition-colors"
+              className="mb-2 w-full rounded bg-gray-900 p-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               minLength={3}
-              maxLength={20}
             />
             <button
-              type="submit"
-              disabled={tempUsername.trim().length < 3}
-              className="w-full px-4 py-2 bg-[#00FFA3] text-black rounded hover:bg-[#00FFA3]/90 
-                       transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={handleSetUsername}
+              className="w-full rounded bg-gradient-to-r from-cyan-500 to-blue-500 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
             >
               Start Chatting
             </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="h-full bg-black/80 flex flex-col">
-      {/* Chat Header */}
-      <div className="p-4 border-b border-white/10">
-        <div className="flex items-center justify-between">
-          <h2 className="text-[#00FFA3] font-bold">Live Chat</h2>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">{messages.length} messages</span>
-            <span className="text-sm text-[#00FFA3]">Chatting as: {username}</span>
           </div>
         </div>
-      </div>
-
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 ? (
-          <p className="text-gray-400 text-center">No messages yet. Be the first to chat!</p>
-        ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`p-2 rounded ${
-                msg.username === username ? 'bg-[#00FFA3]/10' : 'bg-black/40'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-[#00FFA3]">{msg.username}</span>
-                <span className="text-xs text-gray-400">
-                  {typeof msg.timestamp === 'number' 
-                    ? new Date(msg.timestamp).toLocaleTimeString()
-                    : new Date(msg.timestamp?.toDate?.() || msg.timestamp).toLocaleTimeString()}
-                </span>
+      ) : (
+        <>
+          <div className="flex-1 overflow-y-auto p-2">
+            {error && (
+              <div className="bg-red-900/50 border-b border-red-800 p-2 text-sm text-red-300">
+                {error}
               </div>
-              <p className="text-white break-words">{msg.message}</p>
+            )}
+            
+            <div className="space-y-1.5">
+              {isLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                </div>
+              ) : chatMessages.map((msg, index) => (
+                <div key={msg.id || index} className={`rounded p-1.5 ${msg.username === username ? 'bg-blue-900/30' : 'bg-gray-900'}`}>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs font-bold ${
+                      msg.isSystemMessage 
+                        ? 'text-yellow-400' 
+                        : battleState.fakeGamblers.usernames.includes(msg.username)
+                          ? 'text-green-400'
+                          : 'text-cyan-400'
+                    }`}>
+                      {msg.username}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-sm text-white">{msg.text}</p>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
-          ))
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Chat Input */}
-      <div className="p-4 border-t border-white/10">
-        <form onSubmit={handleSendMessage} className="space-y-2">
-          {error && (
-            <p className="text-red-500 text-sm">{error}</p>
-          )}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Type your message and press Enter to send..."
-              className="flex-1 bg-black/50 text-white px-4 py-2 rounded border border-[#00FFA3]/30 
-                       focus:outline-none focus:border-[#00FFA3] transition-colors"
-              disabled={isSending}
-              maxLength={280}
-            />
-            <button
-              type="submit"
-              disabled={isSending || !newMessage.trim()}
-              className="px-4 py-2 bg-[#00FFA3] text-black rounded hover:bg-[#00FFA3]/90 
-                       transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSending ? 'Sending...' : 'Send'}
-            </button>
           </div>
-        </form>
-      </div>
+          
+          <div className="border-t border-gray-800 p-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={!user ? "Connecting to chat..." : username ? "Type a message..." : "Please login to chat"}
+                disabled={!username || !user}
+                className="flex-1 rounded bg-gray-900 p-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={!username || !user || !inputValue.trim()}
+                className="rounded bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
-} 
+}; 

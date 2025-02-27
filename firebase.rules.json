@@ -4,11 +4,15 @@
     ".write": true,
     "chat": {
       "messages": {
-        ".indexOn": ["timestamp"]
+        ".indexOn": ["timestamp"],
+        ".read": true,
+        ".write": "auth != null"
       }
     },
     "users": {
-      ".indexOn": ["username"]
+      ".indexOn": ["username"],
+      ".read": true,
+      ".write": "auth != null"
     }
   }
 } 

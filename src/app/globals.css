@@ -3,19 +3,51 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 10, 11, 15;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+    to bottom,
+    rgb(var(--background-start-rgb)),
+    rgb(var(--background-end-rgb))
+  );
+  min-height: 100vh;
+}
+
+@layer components {
+  .container-card {
+    @apply rounded-lg border border-gray-800 bg-black;
+  }
+
+  .header-section {
+    @apply border-b border-gray-800 p-3;
+  }
+
+  .text-header {
+    @apply text-sm font-bold text-white;
+  }
+
+  .text-secondary {
+    @apply text-xs text-gray-400;
+  }
+
+  .link-action {
+    @apply text-cyan-400 hover:text-cyan-300;
+  }
+
+  .button-primary {
+    @apply rounded bg-gradient-to-r from-cyan-500 to-blue-500 py-3 font-medium text-white transition-all hover:opacity-90;
+  }
+
+  .grid-layout {
+    @apply grid grid-cols-1 gap-6 lg:grid-cols-12;
+  }
+
+  .flex-between {
+    @apply flex items-center justify-between;
+  }
 }
