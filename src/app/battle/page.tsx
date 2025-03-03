@@ -558,7 +558,7 @@ export default function BattlePage() {
         {/* Right Column - Betting Panel and Chat */}
         <div className="col-span-4 space-y-4">
           {/* Betting Panel */}
-          <div className="container-card">
+          <div className={battleState.phase === 'BETTING' ? "betting-box" : "container-card"}>
             <div className="header-section">
               <h3 className="text-base font-bold text-white">
                 {battleState.phase === 'BETTING' ? 'Place Your Bet' : 'Betting Closed'}
