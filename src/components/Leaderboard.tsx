@@ -12,89 +12,69 @@ type LeaderboardEntry = {
   profit: number;
 };
 
+// Static leaderboard data with the specified names
+const staticLeaderboardData: Record<string, LeaderboardEntry[]> = {
+  daily: [
+    { rank: 1, username: 'ImTheDEV', wins: 41, losses: 19, totalBets: 60, profit: 2450.75 },
+    { rank: 2, username: 'QvixyX', wins: 32, losses: 15, totalBets: 47, profit: 1875.50 },
+    { rank: 3, username: 'epeooi', wins: 28, losses: 22, totalBets: 50, profit: 1250.25 },
+    { rank: 4, username: 'romaniii', wins: 25, losses: 20, totalBets: 45, profit: 980.80 }
+  ],
+  weekly: [
+    { rank: 1, username: 'ImTheDEV', wins: 187, losses: 93, totalBets: 280, profit: 12450.75 },
+    { rank: 2, username: 'QvixyX', wins: 165, losses: 85, totalBets: 250, profit: 9875.50 },
+    { rank: 3, username: 'romaniii', wins: 142, losses: 108, totalBets: 250, profit: 7250.25 },
+    { rank: 4, username: 'epeooi', wins: 130, losses: 110, totalBets: 240, profit: 5980.80 }
+  ],
+  allTime: [
+    { rank: 1, username: 'ImTheDEV', wins: 1241, losses: 759, totalBets: 2000, profit: 87450.75 },
+    { rank: 2, username: 'romaniii', wins: 1050, losses: 850, totalBets: 1900, profit: 65875.50 },
+    { rank: 3, username: 'QvixyX', wins: 980, losses: 820, totalBets: 1800, profit: 52250.25 },
+    { rank: 4, username: 'epeooi', wins: 870, losses: 730, totalBets: 1600, profit: 41980.80 }
+  ]
+};
+
 export const Leaderboard = () => {
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'allTime'>('daily');
-  const { battleState } = useBattle();
-  const [leaderboardData, setLeaderboardData] = useState<Record<string, LeaderboardEntry[]>>({
-    daily: [],
-    weekly: [],
-    allTime: []
-  });
+  const [leaderboardData, setLeaderboardData] = useState<Record<string, LeaderboardEntry[]>>(staticLeaderboardData);
   
-  // Generate leaderboard data from fake gamblers
+  // Simulate gradual updates to the leaderboard data
   useEffect(() => {
-    // Generate random stats for each fake gambler
-    const generateLeaderboardData = () => {
-      const fakeGamblerUsernames = battleState.fakeGamblers.usernames;
-      
-      // Create entries with random stats
-      const entries = fakeGamblerUsernames.map((username, index) => {
-        // Generate random stats that look realistic
-        const totalBets = Math.floor(Math.random() * 50) + 10;
-        const winRate = Math.random() * 0.3 + 0.4; // Win rate between 40% and 70%
-        const wins = Math.floor(totalBets * winRate);
-        const losses = totalBets - wins;
+    // Update leaderboard data every 30 seconds with small increments
+    const interval = setInterval(() => {
+      setLeaderboardData(prevData => {
+        const newData = { ...prevData };
         
-        // Generate profit based on bet size and win rate
-        // Higher ranked players have higher profits
-        const baseProfit = (20 - index) * 100; // Higher rank = higher base profit
-        const randomFactor = Math.random() * 0.5 + 0.75; // Random factor between 0.75 and 1.25
-        const profit = baseProfit * randomFactor;
+        // Update each time period with small increments
+        Object.keys(newData).forEach(period => {
+          newData[period as keyof typeof newData] = newData[period as keyof typeof newData].map(entry => {
+            // Small random increments to wins and losses
+            const winIncrement = Math.random() > 0.7 ? 1 : 0;
+            const lossIncrement = Math.random() > 0.7 ? 1 : 0;
+            
+            const wins = entry.wins + winIncrement;
+            const losses = entry.losses + lossIncrement;
+            const totalBets = wins + losses;
+            
+            // Calculate new profit based on win/loss ratio
+            const profitIncrement = winIncrement * (50 + Math.random() * 20) - lossIncrement * (40 + Math.random() * 15);
+            
+            return {
+              ...entry,
+              wins,
+              losses,
+              totalBets,
+              profit: entry.profit + profitIncrement
+            };
+          });
+        });
         
-        return {
-          username,
-          wins,
-          losses,
-          totalBets,
-          profit
-        };
+        return newData;
       });
-      
-      // Sort by profit and assign ranks
-      const sortedEntries = entries.sort((a, b) => b.profit - a.profit)
-        .map((entry, index) => ({
-          ...entry,
-          rank: index + 1
-        }));
-      
-      // Take top 10 for each time period
-      const dailyEntries = sortedEntries.slice(0, 10);
-      
-      // Weekly has slightly different stats
-      const weeklyEntries = sortedEntries.map(entry => ({
-        ...entry,
-        wins: entry.wins * 5 + Math.floor(Math.random() * 10),
-        losses: entry.losses * 5 + Math.floor(Math.random() * 10),
-        totalBets: entry.totalBets * 5 + Math.floor(Math.random() * 20),
-        profit: entry.profit * 4 + Math.random() * 1000
-      })).sort((a, b) => b.profit - a.profit)
-        .map((entry, index) => ({
-          ...entry,
-          rank: index + 1
-        })).slice(0, 10);
-      
-      // All time has much higher stats
-      const allTimeEntries = sortedEntries.map(entry => ({
-        ...entry,
-        wins: entry.wins * 25 + Math.floor(Math.random() * 50),
-        losses: entry.losses * 25 + Math.floor(Math.random() * 50),
-        totalBets: entry.totalBets * 25 + Math.floor(Math.random() * 100),
-        profit: entry.profit * 20 + Math.random() * 5000
-      })).sort((a, b) => b.profit - a.profit)
-        .map((entry, index) => ({
-          ...entry,
-          rank: index + 1
-        })).slice(0, 10);
-      
-      return {
-        daily: dailyEntries,
-        weekly: weeklyEntries,
-        allTime: allTimeEntries
-      };
-    };
+    }, 30000); // Update every 30 seconds
     
-    setLeaderboardData(generateLeaderboardData());
-  }, [battleState.fakeGamblers.usernames]);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="rounded-lg border border-gray-800 bg-black">

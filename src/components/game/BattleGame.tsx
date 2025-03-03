@@ -15,6 +15,7 @@ export const BattleGame: React.FC<BattleGameProps> = ({ className }) => {
   const { battleState } = useBattle();
   const gameInstanceRef = useRef<Phaser.Game | null>(null);
   const lastBattleRef = useRef(battleState.currentBattle);
+  const lastPhaseRef = useRef(battleState.phase);
 
   useEffect(() => {
     if (!gameRef.current) return;
@@ -54,6 +55,18 @@ export const BattleGame: React.FC<BattleGameProps> = ({ className }) => {
       lastBattleRef.current = battleState.currentBattle;
     }
   }, [battleState.currentBattle]);
+
+  // Sync battle phase with the BattleScene
+  useEffect(() => {
+    if (battleState.phase !== lastPhaseRef.current) {
+      const scene = gameInstanceRef.current?.scene.getScene('BattleScene') as BattleScene;
+      if (scene && scene.setBattlePhase) {
+        console.log(`Setting battle phase to ${battleState.phase}`);
+        scene.setBattlePhase(battleState.phase);
+      }
+      lastPhaseRef.current = battleState.phase;
+    }
+  }, [battleState.phase]);
 
   return (
     <div className="relative w-full h-full bg-transparent rounded-lg overflow-hidden">

@@ -18,6 +18,35 @@ export class BattleScene extends Phaser.Scene {
     super({ key: 'BattleScene' });
   }
 
+  // Method to change the arena background
+  changeArena() {
+    this.currentArena = (this.currentArena + 1) % 5; // Cycle through 5 arenas
+    this.updateArenaScale();
+    
+    // Reset fighters to idle state
+    if (this.fighter1?.sprite) {
+      this.fighter1.sprite.play('hash-idle');
+    }
+    if (this.fighter2?.sprite) {
+      this.fighter2.sprite.play('demon-idle');
+    }
+  }
+
+  private updateArenaScale() {
+    if (this.arenaSprite) {
+      // Scale the arena to fit the screen
+      const canvasWidth = this.cameras.main.width;
+      const canvasHeight = this.cameras.main.height;
+      
+      const scaleX = canvasWidth / this.arenaSprite.width;
+      const scaleY = canvasHeight / this.arenaSprite.height;
+      
+      const scale = Math.max(scaleX, scaleY);
+      this.arenaSprite.setScale(scale);
+      this.arenaSprite.setPosition(canvasWidth / 2, canvasHeight / 2);
+    }
+  }
+
   preload() {
     // Load HASH character sprite frames
     // Idle animation (8 frames)
@@ -189,20 +218,6 @@ export class BattleScene extends Phaser.Scene {
       frameRate: 15,
       repeat: 0
     });
-  }
-
-  private updateArenaScale() {
-    if (!this.arenaSprite) return;
-    
-    const canvasWidth = this.cameras.main.width;
-    const canvasHeight = this.cameras.main.height;
-    
-    const scaleX = canvasWidth / this.arenaSprite.width;
-    const scaleY = canvasHeight / this.arenaSprite.height;
-    
-    const scale = Math.max(scaleX, scaleY);
-    this.arenaSprite.setScale(scale);
-    this.arenaSprite.setPosition(canvasWidth / 2, canvasHeight / 2);
   }
 
   private createFighters() {
