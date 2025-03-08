@@ -432,7 +432,7 @@ export default function BattlePage() {
         {/* Left side - Logo and Navigation */}
         <div className="flex items-center">
           {/* Logo */}
-          <div className="h-10 md:h-12 w-24 md:w-32 relative">
+          <div className="h-12 md:h-14 lg:h-16 w-28 md:w-36 lg:w-40 relative">
             <Image
               src="/images/png-clipart-logo-draftkings-brand-font-white-king-of-spades-white-text.png"
               alt="Salty Sol Logo"
@@ -818,8 +818,8 @@ export default function BattlePage() {
                 <Image
                   src="/images/s.png"
                   alt="Salty Sol"
-                  width={80}
-                  height={80}
+                  width={100}
+                  height={100}
                   className="object-contain"
                 />
               </div>

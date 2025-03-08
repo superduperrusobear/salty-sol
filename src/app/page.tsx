@@ -62,7 +62,7 @@ export default function Home() {
       {/* Main content */}
       <div className="container max-w-sm md:max-w-lg mx-auto">
         <div className="text-center mb-6 md:mb-10">
-          <div className="flex justify-center mb-4 relative h-32 md:h-48">
+          <div className="flex justify-center mb-4 relative h-36 md:h-52 lg:h-60">
             <img
               src="/images/png-clipart-logo-draftkings-brand-font-white-king-of-spades-white-text.png"
               alt="Salty Sol Logo"
