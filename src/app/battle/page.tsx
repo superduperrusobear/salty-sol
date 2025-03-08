@@ -395,11 +395,13 @@ export default function BattlePage() {
   return (
     <div className="min-h-screen bg-black text-white p-4 md:p-6">
       {/* Demo Message */}
-      {showDemoMessage && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-gradient-to-r from-blue-600 to-cyan-400 text-white px-4 py-2 rounded-lg shadow-glow animate-bounce-once">
-          You are currently experiencing the demo version. Feature not available.
-        </div>
-      )}
+      <div 
+        className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-gradient-to-r from-blue-600 to-cyan-400 text-white px-4 py-2 rounded-lg shadow-glow transition-opacity duration-300 ${
+          showDemoMessage ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        }`}
+      >
+        You are currently experiencing the demo version. Feature not available.
+      </div>
       
       {/* Win Notification */}
       {showWinNotification && (
