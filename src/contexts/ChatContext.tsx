@@ -23,7 +23,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { username } = useUser();
+  const { username, isGuest } = useUser();
   const { user } = useFirebase();
   const [isMounted, setIsMounted] = useState(false);
 
@@ -42,7 +42,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     let unsubscribe: (() => void) | undefined;
 
     const setupChatListener = () => {
-      if (!user) {
+      // Allow chat to work even without Firebase auth for guest users
+      if (!user && !isGuest) {
         setError('Please wait while we connect to chat...');
         return;
       }
@@ -69,14 +70,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         unsubscribe();
       }
     };
-  }, [user, isMounted]);
+  }, [user, isMounted, isGuest]);
 
   const sendMessage = useCallback(async (text: string) => {
-    if (!username || !text.trim() || !user) {
-      setError('You must be logged in to send messages');
+    if (!username || !text.trim()) {
+      setError('You must have a username to send messages');
       return;
     }
 
+    // Allow guest users to send messages without Firebase auth
     try {
       setError(null);
       await chatService.sendMessage(username, text.trim());
@@ -84,7 +86,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       console.error('Error sending message:', error);
       setError('Failed to send message. Please try again.');
     }
-  }, [username, user]);
+  }, [username]);
 
   // Don't render anything until after hydration
   if (!isMounted) {

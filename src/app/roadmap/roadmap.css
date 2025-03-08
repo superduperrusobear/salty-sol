@@ -1,0 +1,111 @@
+/* Roadmap styles */
+article {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+article:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+article header svg {
+  transition: transform 0.4s;
+}
+
+article:hover header svg {
+  transform: scale(1.2);
+}
+
+/* Transition for expanding content */
+.body {
+  transition: max-height 0.5s, padding 0.5s;
+  padding: 0;
+  max-height: 0;
+  overflow: hidden;
+}
+
+article.active .body {
+  padding: 20px;
+  max-height: 500px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: none;
+}
+
+/* Ensure text alignment in list items */
+#infographic section:nth-child(even) article ul {
+  text-align: left;
+}
+
+/* Fix icon alignment */
+#infographic article header .text-white {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ensure consistent spacing */
+#infographic article header {
+  padding: 1rem;
+}
+
+#infographic article .body {
+  padding: 0;
+}
+
+#infographic article.active .body {
+  padding: 1.25rem;
+}
+
+/* Alternating layout with consistent styling */
+#infographic article {
+  max-width: 410px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+#infographic section:nth-child(odd) article {
+  margin-right: auto;
+  margin-left: 0;
+}
+
+#infographic section:nth-child(even) article {
+  margin-left: auto;
+  margin-right: 0;
+  text-align: right;
+}
+
+#infographic section:nth-child(even) article header {
+  flex-flow: row-reverse;
+}
+
+#infographic section:nth-child(even) article header > div:nth-child(2) {
+  margin-left: 0;
+  margin-right: 1rem;
+  text-align: right;
+}
+
+/* Remove all article positioning */
+#infographic article[data-step] {
+  margin-left: 0;
+}
+
+#infographic article header i {
+  display: flex;
+  font-size: 2em;
+  border-radius: 50%;
+  padding: 14px;
+  transition: transform 0.4s;
+  color: #fff;
+  margin: 0;
+}
+
+#infographic article.active header i {
+  transform: none;
+}
+
+#infographic article .body .btn {
+  padding: 3px 10px;
+  text-transform: uppercase;
+} 

@@ -106,8 +106,15 @@ export const BattleGame: React.FC<BattleGameProps> = ({ className }) => {
       {/* Phaser game container */}
       <div 
         ref={gameRef} 
-        className={`w-full h-full bg-transparent rounded-lg overflow-hidden ${className || ''}`}
-        style={{ background: 'transparent' }}
+        className={`w-full h-full absolute inset-0 bg-transparent rounded-lg overflow-hidden ${className || ''}`}
+        style={{ 
+          background: 'transparent',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0
+        }}
       />
     </div>
   );

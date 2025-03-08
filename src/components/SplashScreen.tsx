@@ -39,7 +39,7 @@ export default function SplashScreen({ onComplete }: SplashScreenProps) {
         createdAt: new Date().toISOString(),
         totalBets: 0,
         totalWins: 0,
-        solBalance: 100,
+        solBalance: 5,
         lastUpdated: serverTimestamp()
       };
 

@@ -12,6 +12,9 @@ import type { BattleState } from '@/contexts/BattleContext';
 import { BattleGame } from '@/components/game/BattleGame';
 import Image from 'next/image';
 
+// Constants
+const SOL_TO_USDT_RATE = 139.09;
+
 interface FighterModalProps {
   fighter: Fighter | null;
   isOpen: boolean;
@@ -110,13 +113,16 @@ const FighterModal = ({ fighter, isOpen, onClose, battleState }: FighterModalPro
 export default function BattlePage() {
   const router = useRouter();
   const { username, isGuest, solBalance } = useUser();
-  const { battleState, placeBet, calculatePotentialPayout } = useBattle();
+  const { battleState, placeBet, calculatePotentialPayout, getUserBet } = useBattle();
   const [selectedAmount, setSelectedAmount] = useState<number | null>(null);
   const [selectedPlayer, setSelectedPlayer] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [selectedFighter, setSelectedFighter] = useState<Fighter | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showWinNotification, setShowWinNotification] = useState(false);
+  const [winAmount, setWinAmount] = useState(0);
 
   // Monitor battle state changes
   useEffect(() => {
@@ -125,6 +131,59 @@ export default function BattlePage() {
       setIsLoading(false);
     }
   }, [battleState]);
+
+  // Monitor for wins
+  useEffect(() => {
+    if (battleState.phase === 'PAYOUT' && battleState.battleOutcome) {
+      const winner = battleState.battleOutcome.winner;
+      const userBet = getUserBet(username || '');
+      
+      if (userBet && userBet.player === winner) {
+        // User won!
+        const winningBets = battleState.bets.filter(bet => bet.player === winner);
+        const totalWinningBetsAmount = winningBets.reduce((sum, bet) => sum + bet.amount, 0);
+        const userWinningBets = winningBets.filter(bet => bet.username === username);
+        
+        if (userWinningBets.length > 0) {
+          const userTotalBetAmount = userWinningBets.reduce((sum, bet) => sum + bet.amount, 0);
+          const userSharePercentage = userTotalBetAmount / totalWinningBetsAmount;
+          const userPayout = battleState.totalPool * userSharePercentage;
+          
+          setWinAmount(userPayout);
+          setShowWinNotification(true);
+          
+          // Hide notification after 5 seconds
+          setTimeout(() => {
+            setShowWinNotification(false);
+          }, 5000);
+        }
+      }
+    }
+  }, [battleState.phase, battleState.battleOutcome, battleState.bets, battleState.totalPool, username, getUserBet]);
+
+  // Debug bet button state
+  useEffect(() => {
+    const buttonDisabled = 
+      battleState.phase !== 'BETTING' ||
+      !selectedPlayer ||
+      (!selectedAmount && !customAmount) ||
+      (selectedAmount || Number(customAmount)) > solBalance;
+    
+    console.log('Bet button state:', {
+      disabled: buttonDisabled,
+      phase: battleState.phase,
+      selectedPlayer,
+      selectedAmount,
+      customAmount,
+      solBalance,
+      conditions: {
+        isBettingPhase: battleState.phase === 'BETTING',
+        hasSelectedPlayer: !!selectedPlayer,
+        hasAmount: !!(selectedAmount || customAmount),
+        sufficientBalance: !((selectedAmount || Number(customAmount)) > solBalance)
+      }
+    });
+  }, [battleState.phase, selectedPlayer, selectedAmount, customAmount, solBalance]);
 
   // Redirect if no username
   useEffect(() => {
@@ -160,11 +219,13 @@ export default function BattlePage() {
   };
 
   const handleQuickBet = (amount: number) => {
+    console.log('Quick bet selected:', amount);
     setSelectedAmount(amount);
     setCustomAmount('');
   };
 
   const handlePlayerSelect = (player: number) => {
+    console.log('Player selected:', player);
     setSelectedPlayer(player);
   };
 
@@ -177,13 +238,58 @@ export default function BattlePage() {
   };
 
   const handlePlaceBet = () => {
-    const amount = selectedAmount || Number(customAmount);
-    if (amount && selectedPlayer && amount <= solBalance && !battleState.betsLocked) {
-      placeBet(amount, selectedPlayer as 1 | 2);
-      setSelectedAmount(null);
-      setSelectedPlayer(null);
-      setCustomAmount('');
+    // Parse the amount properly
+    const amount = selectedAmount !== null ? selectedAmount : (customAmount ? parseFloat(customAmount) : 0);
+    
+    console.log('Attempting to place bet:', { 
+      amount, 
+      selectedPlayer, 
+      solBalance, 
+      betsLocked: battleState.betsLocked,
+      phase: battleState.phase,
+      conditions: {
+        hasAmount: amount > 0,
+        hasPlayer: selectedPlayer === 1 || selectedPlayer === 2,
+        sufficientBalance: amount <= solBalance,
+        betsNotLocked: !battleState.betsLocked,
+        isBettingPhase: battleState.phase === 'BETTING'
+      }
+    });
+    
+    // Validate all conditions explicitly
+    if (amount <= 0) {
+      console.log('Bet failed: Invalid amount');
+      return;
     }
+    
+    if (selectedPlayer !== 1 && selectedPlayer !== 2) {
+      console.log('Bet failed: Invalid player selection');
+      return;
+    }
+    
+    if (amount > solBalance) {
+      console.log('Bet failed: Insufficient balance');
+      return;
+    }
+    
+    if (battleState.betsLocked) {
+      console.log('Bet failed: Betting is locked');
+      return;
+    }
+    
+    if (battleState.phase !== 'BETTING') {
+      console.log('Bet failed: Not in betting phase');
+      return;
+    }
+    
+    // All conditions met, place the bet
+    console.log('Placing bet:', { amount, player: selectedPlayer });
+    placeBet(amount, selectedPlayer as 1 | 2);
+    
+    // Reset state after placing bet
+    setSelectedAmount(null);
+    setSelectedPlayer(null);
+    setCustomAmount('');
   };
 
   const handleViewProfile = (fighter: Fighter | null) => {
@@ -285,62 +391,128 @@ export default function BattlePage() {
 
   return (
     <main className="min-h-screen bg-black p-6">
-      {/* Header with Phase Display */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex-1">
-          <span className="rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 px-2.5 py-0.5 text-sm text-white">
-            {username} {isGuest && <span className="text-xs opacity-70">(Guest)</span>}
-          </span>
+      {/* Win Notification */}
+      {showWinNotification && (
+        <div className="fixed top-4 right-4 bg-gradient-to-r from-green-500 to-blue-500 text-white p-4 rounded-lg shadow-lg z-50 animate-bounce">
+          <div className="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div>
+              <div className="font-bold">You Won!</div>
+              <div>+{winAmount.toFixed(2)} SOL (${(winAmount * SOL_TO_USDT_RATE).toFixed(2)} USDT)</div>
+            </div>
+          </div>
         </div>
-        <div className="flex-1 flex justify-center">
-          <div className="h-16 w-48 relative">
+      )}
+      
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between bg-black">
+        {/* Left side - Logo and Navigation */}
+        <div className="flex items-center">
+          {/* Logo */}
+          <div className="h-12 w-32 relative">
             <Image
               src="/images/png-clipart-logo-draftkings-brand-font-white-king-of-spades-white-text.png"
               alt="Salty Sol Logo"
               fill
-              style={{ objectFit: 'contain' }}
-              priority
+              className="object-contain"
             />
           </div>
+
+          {/* Navigation Buttons */}
+          <div className="flex items-center gap-6 ml-8">
+            <button className="text-white hover:text-cyan-400 transition-colors text-sm font-medium">
+              Referrals
+            </button>
+            <button className="text-white hover:text-cyan-400 transition-colors text-sm font-medium">
+              Portfolio
+            </button>
+            <button className="text-white hover:text-cyan-400 transition-colors text-sm font-medium">
+              Rewards
+            </button>
+            <button className="text-white hover:text-cyan-400 transition-colors text-sm font-medium">
+              Upcoming Battles
+            </button>
+            <button 
+              onClick={() => setIsLeaderboardOpen(true)}
+              className="bg-gradient-to-r from-blue-600 to-cyan-400 bg-clip-text text-transparent hover:from-blue-500 hover:to-cyan-300 transition-colors text-sm font-medium"
+            >
+              View Leaderboard
+            </button>
+          </div>
         </div>
-        <div className="flex-1 flex items-center justify-end gap-4">
-          {/* Social Links */}
-          <div className="flex items-center gap-3">
-            <a 
-              href="https://x.com/BetSaltySol" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+
+        {/* Right side - Wallet and Profile */}
+        <div className="flex items-center gap-4">
+          {/* Deposit Button */}
+          <button className="bg-gradient-to-r from-blue-600 to-cyan-400 text-white px-4 py-1.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity">
+            Deposit
+          </button>
+          
+          {/* Wallet Button */}
+          <button className="w-fit min-w-max bg-gray-800/50 flex flex-row h-[32px] px-[16px] py-[8px] gap-[12px] justify-center items-center rounded-full hover:bg-gray-700/50 transition-colors">
+            {/* Wallet Icon */}
+            <i className="text-[18px] flex items-center">
+              <Image
+                src="/images/wallet.svg"
+                alt="Wallet"
+                width={18}
+                height={18}
+                className="text-white flex-shrink-0 brightness-0 invert"
+              />
+            </i>
+
+            {/* SOL Balance */}
+            <div className="hidden xl:flex flex-shrink-0 whitespace-nowrap flex-row gap-[8px] justify-start items-center min-w-[80px]">
+              <Image
+                src="/images/solana-sol-logo.png"
+                alt="SOL"
+                width={16}
+                height={16}
+                className="text-white flex-shrink-0"
+              />
+              <span className="text-[14px] font-semibold">{solBalance.toFixed(2)}</span>
+            </div>
+
+            {/* Divider */}
+            <div className="hidden xl:block flex-shrink-0 w-[1px] h-[14px] bg-gray-700"></div>
+
+            {/* USDC Balance */}
+            <div className="hidden xl:flex flex-shrink-0 whitespace-nowrap flex-row gap-[8px] justify-start items-center min-w-[90px]">
+              <Image
+                src="/images/825.png"
+                alt="USDC"
+                width={18}
+                height={18}
+                className="text-white flex-shrink-0"
+              />
+              <span className="text-[14px] font-semibold">{(solBalance * SOL_TO_USDT_RATE).toFixed(2)}</span>
+            </div>
+
+            {/* Dropdown Arrow */}
+            <i className="text-[18px] flex items-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-[18px] h-[18px]">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
-            </a>
-            <a 
-              href="https://t.me/betsaltysol" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-              </svg>
-            </a>
-          </div>
-          {getPhaseDisplay()}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-400">Balance:</span>
-            <span className="font-mono text-lg text-white">{solBalance.toFixed(2)} SOL</span>
-          </div>
+            </i>
+          </button>
+
+          {/* Profile Icon */}
+          <button className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5 text-gray-400">
+              <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zM7.07 18.28c.43-.9 3.05-1.78 4.93-1.78s4.51.88 4.93 1.78C15.57 19.36 13.86 20 12 20s-3.57-.64-4.93-1.72zm11.29-1.45c-1.43-1.74-4.9-2.33-6.36-2.33s-4.93.59-6.36 2.33C4.62 15.49 4 13.82 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8c0 1.82-.62 3.49-1.64 4.83zM12 6c-1.94 0-3.5 1.56-3.5 3.5S10.06 13 12 13s3.5-1.56 3.5-3.5S13.94 6 12 6zm0 5c-.83 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5 1.5S12.83 11 12 11z"/>
+            </svg>
+          </button>
         </div>
       </div>
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-12 gap-4">
         {/* Left Column - Battle Arena */}
-        <div className="col-span-8">
+        <div className="col-span-10">
           {/* Battle Arena Card */}
-          <div className="container-card mb-4 rounded-lg overflow-hidden">
+          <div className="container-card mb-4 rounded-lg overflow-hidden border-0">
             <div className="header-section flex-between">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
@@ -348,13 +520,9 @@ export default function BattlePage() {
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <h2 className="text-base font-bold text-white">Current Battle</h2>
+                <h2 className="text-base font-bold text-white">Battle Arena</h2>
               </div>
               <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 rounded bg-red-900/30 px-2 py-0.5 text-xs font-medium text-red-400">
-                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500"></span>
-                  LIVE
-                </span>
                 <span className="rounded bg-gray-900 px-2 py-0.5 text-xs font-medium text-gray-400">
                   {Math.floor(battleState.timeRemaining / 60)}:{(battleState.timeRemaining % 60).toString().padStart(2, '0')}
                 </span>
@@ -363,98 +531,274 @@ export default function BattlePage() {
 
             {/* Battle Content */}
             <div className="p-3">
-              {/* Players Info */}
-              <div className="mb-3 grid grid-cols-2 gap-3">
-                {[
-                  { fighter: battleState.fighters.current.player1, index: 1 },
-                  { fighter: battleState.fighters.current.player2, index: 2 }
-                ].map(({ fighter, index }) => (
-                  <div key={index} className="rounded-lg border border-gray-800 bg-gray-950 p-3">
-                    {fighter ? (
-                      <>
-                        <div className="mb-2 flex items-center gap-2">
-                          <img 
-                            src={getFighterImage(fighter, index)}
-                            alt={fighter.name} 
-                            className="h-6 w-6 rounded-full object-cover"
-                          />
-                          <button 
-                            onClick={() => fighter.contractAddress && navigator.clipboard.writeText(fighter.contractAddress)}
-                            className="text-base font-bold text-white hover:text-cyan-400 transition-colors"
-                          >
-                            {fighter.name}
-                            <span className="text-sm font-normal text-gray-500 ml-1">
-                              ({fighter.symbol})
-                            </span>
-                          </button>
-                        </div>
-                        <div className="space-y-1.5 text-sm text-gray-400">
-                          <div className="flex justify-between">
-                            <span>Win Chance</span>
-                            <span className="text-green-400">
-                              {getWinChance(index).toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Market Cap</span>
-                            <span className="text-white">
-                              ${tokenService.formatNumber(fighter.marketCap || 0)}
-                            </span>
-                          </div>
-                          <button 
-                            onClick={() => handleViewProfile(fighter)}
-                            className="w-full mt-1 flex items-center justify-center gap-1 rounded border border-gray-800 bg-gray-900 px-2 py-1 text-xs text-cyan-400 hover:bg-gray-800 hover:text-cyan-300 transition-colors"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                              <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-                              <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                            </svg>
-                            View Fighter Profile
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex items-center justify-center h-24">
-                        <div className="animate-pulse text-gray-500">Loading fighter data...</div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-
               {/* Battle Arena - Phaser Game Container */}
               <div 
                 id="game-container"
-                className="relative w-full aspect-[16/9] rounded-lg overflow-hidden"
+                className="relative w-full rounded-lg overflow-hidden mb-4"
                 style={{
-                  minHeight: '400px',
-                  maxHeight: '600px'
+                  minHeight: '500px',
+                  maxHeight: '700px',
+                  height: '100%',
+                  aspectRatio: '16/9',
+                  display: 'flex',
+                  flexDirection: 'column'
                 }}
               >
                 {/* Battle outcome overlay */}
                 {renderBattleOutcome()}
                 
                 {/* Phaser Game */}
-                <BattleGame />
+                <BattleGame className="flex-grow" />
               </div>
-            </div>
 
-            {/* Battle Controls */}
-            <div className="flex items-center justify-between border-t border-gray-800 p-3">
-              <div className="flex items-center gap-2">
-                <button className="flex items-center gap-1 rounded-full bg-gray-800 px-3 py-0.5 text-sm font-medium text-white hover:bg-gray-700">
-                  Details
-                </button>
-                <button className="flex items-center gap-1 rounded-full bg-gray-800 px-3 py-0.5 text-sm font-medium text-white hover:bg-gray-700">
-                  Share
-                </button>
+              {/* Combined Fighter Info and Betting Panel */}
+              <div className="w-full bg-black rounded-lg overflow-hidden">
+                {/* Header - Simplified */}
+                <div className="bg-black p-3 flex justify-end border-b border-gray-900">
+                  <span className="text-xs text-gray-400">
+                    {Math.floor(battleState.timeRemaining / 60)}:{(battleState.timeRemaining % 60).toString().padStart(2, '0')}
+                  </span>
+                </div>
+
+                {/* Content */}
+                <div className="p-4">
+                  {/* Status Banner */}
+                  {battleState.phase !== 'BETTING' && (
+                    <div className="text-center text-xs text-red-400 p-2 mb-3">
+                      BETTING CLOSED
+                    </div>
+                  )}
+                  
+                  {/* Fighter Selection */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    {/* Fighter 1 */}
+                    <button
+                      onClick={() => handlePlayerSelect(1)}
+                      disabled={battleState.phase !== 'BETTING'}
+                      className={`bg-black rounded-lg p-3 ${
+                        selectedPlayer === 1
+                          ? 'ring-1 ring-blue-500'
+                          : 'border border-gray-900'
+                      } ${battleState.phase !== 'BETTING' ? 'opacity-75 cursor-not-allowed' : ''}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-black overflow-hidden flex-shrink-0 border border-gray-800">
+                          <img 
+                            src={getFighterImage(battleState.fighters.current.player1, 1)}
+                            alt={battleState.fighters.current.player1?.name || 'Fighter 1'} 
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="text-sm font-medium text-white">
+                            {battleState.fighters.current.player1?.symbol || 'P1'}
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">{battleState.player1Pool.toFixed(2)} SOL</span>
+                            <span className="text-xs text-green-400">{getWinChance(1).toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                    
+                    {/* Fighter 2 */}
+                    <button
+                      onClick={() => handlePlayerSelect(2)}
+                      disabled={battleState.phase !== 'BETTING'}
+                      className={`bg-black rounded-lg p-3 ${
+                        selectedPlayer === 2
+                          ? 'ring-1 ring-blue-500'
+                          : 'border border-gray-900'
+                      } ${battleState.phase !== 'BETTING' ? 'opacity-75 cursor-not-allowed' : ''}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-black overflow-hidden flex-shrink-0 border border-gray-800">
+                          <img 
+                            src={getFighterImage(battleState.fighters.current.player2, 2)}
+                            alt={battleState.fighters.current.player2?.name || 'Fighter 2'} 
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="text-sm font-medium text-white">
+                            {battleState.fighters.current.player2?.symbol || 'P2'}
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-gray-500">{battleState.player2Pool.toFixed(2)} SOL</span>
+                            <span className="text-xs text-green-400">{getWinChance(2).toFixed(1)}%</span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                  
+                  {/* Betting Controls */}
+                  <div className="bg-black border border-gray-900 rounded-lg p-3 mb-3">
+                    <div className="flex justify-between items-center mb-3">
+                      <span className="text-xs text-white">Amount</span>
+                      <span className="text-xs text-gray-500">Balance: {solBalance.toFixed(2)} SOL</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-4 gap-2 mb-3">
+                      {/* Quick Bet Buttons */}
+                      {[0.25, 0.5, 1, 2].map((amount) => (
+                        <button
+                          key={amount}
+                          onClick={() => handleQuickBet(amount)}
+                          disabled={battleState.phase !== 'BETTING'}
+                          className={`bg-black border ${
+                            selectedAmount === amount ? 'border-blue-500 text-blue-400' : 'border-gray-800 text-gray-400'
+                          } py-1 text-xs rounded disabled:opacity-50`}
+                        >
+                          {amount}
+                        </button>
+                      ))}
+                    </div>
+                    
+                    <div className="grid grid-cols-5 gap-2 mb-3">
+                      {/* Custom Amount Input */}
+                      <div className="relative col-span-3">
+                        <input
+                          type="number"
+                          value={customAmount}
+                          onChange={handleCustomAmountChange}
+                          disabled={battleState.phase !== 'BETTING'}
+                          placeholder="Enter amount"
+                          className="w-full bg-black border border-gray-800 rounded py-1.5 px-3 text-sm text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">SOL</span>
+                      </div>
+                      
+                      {/* Place Bet Button */}
+                      <button
+                        onClick={handlePlaceBet}
+                        disabled={
+                          battleState.phase !== 'BETTING' ||
+                          (selectedPlayer !== 1 && selectedPlayer !== 2) ||
+                          (!selectedAmount && (!customAmount || parseFloat(customAmount) <= 0)) ||
+                          (selectedAmount || (customAmount ? parseFloat(customAmount) : 0)) > solBalance
+                        }
+                        className="col-span-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:opacity-90 text-white py-1.5 rounded text-sm disabled:opacity-50 disabled:bg-gray-800"
+                      >
+                        {battleState.phase === 'BETTING' ? 'Place Bet' : 'Betting Closed'}
+                      </button>
+                    </div>
+                    
+                    {/* Potential Payout - Only show when both player and amount are selected */}
+                    {selectedPlayer && (selectedAmount || customAmount) && (
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-400">Potential Payout:</span>
+                        <span className="text-green-400 font-medium">
+                          {calculatePotentialPayout(
+                            selectedAmount || Number(customAmount), 
+                            selectedPlayer as 1 | 2
+                          ).toFixed(2)} SOL
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Guest Mode Notice - Move to bottom */}
+                  {isGuest && (
+                    <div className="text-xs text-blue-400 text-center">
+                      You're in guest mode. Your bets are for fun only.
+                    </div>
+                  )}
+                </div>
               </div>
-              <button className="flex items-center gap-1 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-0.5 text-sm font-medium text-white hover:opacity-90">
-                Place Bet
-              </button>
             </div>
           </div>
+        </div>
 
+        {/* Right Column - Chat */}
+        <div className="col-span-2">
+          {/* Distribution Pool - Small Version */}
+          <div className="mb-1 bg-black border border-gray-800 p-2">
+            <div className="text-xs font-medium text-white mb-2">Distribution Pool</div>
+            <div className="space-y-2">
+              {/* Player 1 Pool */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <div className="text-sm">
+                    <span className="text-blue-400 font-medium">{battleState.fighters.current.player1?.symbol || 'P1'}:</span>
+                    <span className="text-white ml-1">{battleState.player1Pool.toFixed(2)} SOL</span>
+                  </div>
+                  <span className="text-xs text-cyan-400 font-medium">
+                    {battleState.totalPool > 0 ? ((battleState.player1Pool / battleState.totalPool) * 100).toFixed(1) : '50'}%
+                  </span>
+                </div>
+                <div className="h-1 bg-gray-900">
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-400 to-blue-600"
+                    style={{ 
+                      width: battleState.totalPool > 0 
+                        ? `${(battleState.player1Pool / battleState.totalPool) * 100}%` 
+                        : '50%' 
+                    }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Player 2 Pool */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <div className="text-sm">
+                    <span className="text-purple-400 font-medium">{battleState.fighters.current.player2?.symbol || 'P2'}:</span>
+                    <span className="text-white ml-1">{battleState.player2Pool.toFixed(2)} SOL</span>
+                  </div>
+                  <span className="text-xs text-cyan-400 font-medium">
+                    {battleState.totalPool > 0 ? ((battleState.player2Pool / battleState.totalPool) * 100).toFixed(1) : '50'}%
+                  </span>
+                </div>
+                <div className="h-1 bg-gray-900">
+                  <div 
+                    className="h-full bg-gradient-to-r from-purple-400 to-purple-600"
+                    style={{ 
+                      width: battleState.totalPool > 0 
+                        ? `${(battleState.player2Pool / battleState.totalPool) * 100}%` 
+                        : '50%' 
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Chat Box */}
+          <div className="h-[600px] border border-gray-800">
+            <ChatBox />
+          </div>
+
+          {/* Demo Version Footer */}
+          <div className="mt-2 bg-black border border-gray-800 p-6 text-center h-[400px] flex flex-col justify-between">
+            <div>
+              <div className="flex justify-center mb-6">
+                <Image
+                  src="/images/s.png"
+                  alt="Salty Sol"
+                  width={80}
+                  height={80}
+                  className="object-contain"
+                />
+              </div>
+              <div className="text-lg font-medium text-cyan-400 mb-4">
+                CURRENTLY EXPERIENCING DEMO VERSION
+              </div>
+              <div className="text-base text-gray-400 mb-6">
+                Sign up for PRIVATE ACCESS
+              </div>
+              <button className="w-full py-2 px-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:opacity-90 transition-all rounded-full">
+                Click Here
+              </button>
+            </div>
+            <div className="text-sm text-gray-600">
+              © 2025 Salty Sol. All rights reserved.
+            </div>
+          </div>
+        </div>
+
+        {/* Hidden Elements */}
+        <div className="hidden">
           {/* Pool Distribution and Leaderboard */}
           <div className="grid grid-cols-2 gap-4">
             {/* Pool Distribution */}
@@ -463,7 +807,7 @@ export default function BattlePage() {
                 <div className="flex items-center gap-2">
                   <div className="h-6 w-6 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-white" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" />
+                      <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 002-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" />
                     </svg>
                   </div>
                   <h3 className="text-base font-bold text-white">Pool Distribution</h3>
@@ -553,10 +897,7 @@ export default function BattlePage() {
               <Leaderboard />
             </div>
           </div>
-        </div>
 
-        {/* Right Column - Betting Panel and Chat */}
-        <div className="col-span-4 space-y-4">
           {/* Betting Panel */}
           <div className={battleState.phase === 'BETTING' ? "betting-box" : "container-card"}>
             <div className="header-section">
@@ -604,7 +945,7 @@ export default function BattlePage() {
                   onChange={handleCustomAmountChange}
                   disabled={battleState.phase !== 'BETTING'}
                   placeholder="Enter amount"
-                  className="w-full bg-gray-900/50 border border-gray-800 rounded px-3 py-1.5 text-center text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50"
+                  className="w-full bg-gray-900 border border-gray-800 rounded px-3 py-1.5 text-center text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50"
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">SOL</span>
               </div>
@@ -647,9 +988,9 @@ export default function BattlePage() {
                 onClick={handlePlaceBet}
                 disabled={
                   battleState.phase !== 'BETTING' ||
-                  !selectedPlayer ||
-                  (!selectedAmount && !customAmount) ||
-                  (selectedAmount || Number(customAmount)) > solBalance
+                  (selectedPlayer !== 1 && selectedPlayer !== 2) ||
+                  (!selectedAmount && (!customAmount || parseFloat(customAmount) <= 0)) ||
+                  (selectedAmount || (customAmount ? parseFloat(customAmount) : 0)) > solBalance
                 }
                 className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:opacity-90 text-white py-1.5 rounded font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -663,11 +1004,6 @@ export default function BattlePage() {
               </div>
             </div>
           </div>
-
-          {/* Chat Box */}
-          <div className="flex-1 h-[calc(100vh-500px)]">
-            <ChatBox />
-          </div>
         </div>
       </div>
       {/* Modal */}
@@ -677,6 +1013,38 @@ export default function BattlePage() {
         onClose={() => setIsModalOpen(false)}
         battleState={battleState}
       />
+
+      {/* Leaderboard Modal */}
+      {isLeaderboardOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop with blur */}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsLeaderboardOpen(false)} />
+          
+          {/* Modal Content */}
+          <div className="relative w-full max-w-2xl rounded-lg border border-gray-800 bg-black overflow-hidden shadow-[0_0_25px_rgba(0,0,0,0.3)]">
+            {/* Reflective header with gradient */}
+            <div className="bg-gradient-to-r from-blue-900/40 to-black p-4 flex items-center justify-between border-b border-gray-800">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                </svg>
+                Top Performers
+              </h2>
+              <button 
+                onClick={() => setIsLeaderboardOpen(false)}
+                className="rounded-full p-1.5 text-gray-400 hover:bg-gray-800 hover:text-white transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Leaderboard Component */}
+            <Leaderboard />
+          </div>
+        </div>
+      )}
     </main>
   );
 } 

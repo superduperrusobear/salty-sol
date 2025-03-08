@@ -5,8 +5,8 @@ export const createGameConfig = (parent: HTMLElement): Types.Core.GameConfig => 
   return {
     type: Phaser.AUTO,
     parent,
-    width: 1600,  // 16:9 ratio
-    height: 900,  // 16:9 ratio
+    width: '100%',  // Use percentage instead of fixed width
+    height: '100%', // Use percentage instead of fixed height
     transparent: true,  // Make canvas background transparent
     scene: BattleScene,
     physics: {
@@ -17,8 +17,11 @@ export const createGameConfig = (parent: HTMLElement): Types.Core.GameConfig => 
       }
     },
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH
+      mode: Phaser.Scale.RESIZE, // Changed from FIT to RESIZE
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: '100%',
+      height: '100%',
+      parent: parent
     },
     render: {
       pixelArt: false,

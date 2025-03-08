@@ -26,7 +26,7 @@ const UserContext = createContext<UserContextType>({
 });
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [username, setUsername] = useState<string | null>(() => {
+  const [username, setUsernameState] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('salty_sol_username');
     }
@@ -42,14 +42,26 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   
   const [solBalance, setSolBalance] = useState(0);
 
+  // Custom setUsername function that also updates localStorage
+  const setUsername = (newUsername: string | null) => {
+    setUsernameState(newUsername);
+    
+    if (typeof window !== 'undefined') {
+      if (newUsername) {
+        localStorage.setItem('salty_sol_username', newUsername);
+      } else {
+        localStorage.removeItem('salty_sol_username');
+      }
+    }
+  };
+
   const login = async (newUsername: string, asGuest: boolean = false) => {
     try {
       setUsername(newUsername);
       setIsGuest(asGuest);
-      setSolBalance(10000); // Set initial balance to 10000 SOL for all users
+      setSolBalance(5); // Set initial balance to 5 SOL for all users
       
       if (typeof window !== 'undefined') {
-        localStorage.setItem('salty_sol_username', newUsername);
         localStorage.setItem('salty_sol_isGuest', String(asGuest));
       }
 
@@ -74,7 +86,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // Load initial balance if user is logged in
   useEffect(() => {
     if (username) {
-      setSolBalance(10000); // Set initial balance to 10000 SOL
+      setSolBalance(5); // Set initial balance to 5 SOL
     }
   }, [username]);
 

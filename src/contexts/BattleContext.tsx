@@ -116,22 +116,74 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (!payoutProcessed.current) {
-      const winner = battleState.battleOutcome.winner;
-      const winningAmount = battleState.battleOutcome.winningAmount;
-      
-      const winningBets = battleState.bets.filter(bet => bet.player === winner);
-      const totalWinningBets = winningBets.reduce((sum, bet) => sum + bet.amount, 0);
+    console.log('Payout phase detected:', {
+      payoutProcessed: payoutProcessed.current,
+      username,
+      battleOutcome: battleState.battleOutcome,
+      totalPool: battleState.totalPool,
+      bets: battleState.bets
+    });
 
-      // Process user's payout if they won
-      const userBet = winningBets.find(bet => bet.username === username);
-      if (userBet) {
-        const userShare = (userBet.amount / totalWinningBets) * winningAmount;
-        setSolBalance(solBalance + userShare);
-        payoutProcessed.current = true;
+    if (!payoutProcessed.current && username) {
+      const winner = battleState.battleOutcome.winner;
+      const totalPool = battleState.totalPool;
+      
+      // Get all winning bets
+      const winningBets = battleState.bets.filter(bet => bet.player === winner);
+      const totalWinningBetsAmount = winningBets.reduce((sum, bet) => sum + bet.amount, 0);
+
+      console.log('Winning bets:', {
+        winner,
+        winningBets,
+        totalWinningBetsAmount
+      });
+
+      // Get all of the user's winning bets
+      const userWinningBets = winningBets.filter(bet => bet.username === username);
+      
+      console.log('User winning bets:', {
+        username,
+        userWinningBets
+      });
+      
+      if (userWinningBets.length > 0) {
+        // Calculate total amount user bet on the winner
+        const userTotalBetAmount = userWinningBets.reduce((sum, bet) => sum + bet.amount, 0);
+        
+        // Calculate user's share of the pool based on their proportion of winning bets
+        const userSharePercentage = userTotalBetAmount / totalWinningBetsAmount;
+        const userPayout = totalPool * userSharePercentage;
+        
+        console.log('Payout calculation:', {
+          userTotalBetAmount,
+          userSharePercentage,
+          totalPool,
+          userPayout,
+          currentBalance: solBalance,
+          newBalance: solBalance + userPayout
+        });
+        
+        // Add winnings to user's balance
+        console.log(`User won ${userPayout.toFixed(2)} SOL! New balance: ${(solBalance + userPayout).toFixed(2)} SOL`);
+        setSolBalance(solBalance + userPayout);
+        
+        // Show toast notification or other UI feedback about winnings
+        try {
+          // This would be better with a proper notification system
+          const toastModule = window as any;
+          if (toastModule.toast) {
+            toastModule.toast.success(`You won ${userPayout.toFixed(2)} SOL!`);
+          }
+        } catch (e) {
+          console.log('Toast notification failed', e);
+        }
+      } else {
+        console.log('User did not win any bets');
       }
+      
+      payoutProcessed.current = true;
     }
-  }, [battleState.battleOutcome, battleState.phase, username, battleState.bets, solBalance]);
+  }, [battleState.battleOutcome, battleState.phase, username, battleState.bets, battleState.totalPool, solBalance]);
 
   // Battle phase management
   useEffect(() => {
@@ -197,22 +249,13 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
                 next: { player1: null, player2: null }
               }
             };
-
-            // If this was the first battle (using mock tokens), force fetch new fighters
-            if (currentState.currentBattle === 0) {
-              fetchNextFighters().then(fighters => {
-                if (fighters.player1 && fighters.player2) {
-                  setBattleState(state => ({
-                    ...state,
-                    fighters: {
-                      current: fighters,
-                      next: { player1: null, player2: null }
-                    }
-                  }));
-                }
-              });
+            
+            // Fetch next fighters if needed
+            if (!nextState.fighters.current.player1 || !nextState.fighters.current.player2) {
+              // This will be handled by the fetchNextFighters effect
+              console.log('Need to fetch next fighters');
             }
-
+            
             return nextState;
 
           default:
@@ -290,7 +333,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
 
   // Add fake bets during betting phase with memoized callback
   const addFakeBet = React.useCallback(() => {
-    if (Math.random() > 0.3) return; // 30% chance to add fake bet
+    if (Math.random() > 0.7) return; // 70% chance to add fake bet (increased from 30%)
 
     setBattleState(prevState => {
       if (prevState.phase !== 'BETTING' || prevState.betsLocked) return prevState;
@@ -301,22 +344,40 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
 
       if (fakeGamblers.length === 0) return prevState;
 
+      // Determine which player needs more bets to balance distribution
+      const player1BetCount = prevState.bets.filter(bet => bet.player === 1).length;
+      const player2BetCount = prevState.bets.filter(bet => bet.player === 2).length;
+      
+      // Slightly favor the player with fewer bets (60/40 split)
+      let player: 1 | 2;
+      if (player1BetCount < player2BetCount) {
+        player = Math.random() < 0.6 ? 1 : 2;
+      } else if (player2BetCount < player1BetCount) {
+        player = Math.random() < 0.6 ? 2 : 1;
+      } else {
+        // Equal distribution, pure random
+        player = Math.random() < 0.5 ? 1 : 2;
+      }
+      
+      // Smaller bet amounts: 1-8 SOL with decimal precision
+      const amount = Math.floor(Math.random() * 700) / 100 + 1; // 1.00 to 8.00 SOL
+      const roundedAmount = Math.round(amount * 100) / 100; // Round to 2 decimal places
+
       const gambler = fakeGamblers[Math.floor(Math.random() * fakeGamblers.length)];
-      const player = Math.random() < 0.5 ? 1 : 2;
-      const amount = Math.floor(Math.random() * 1000) + 100;
 
       const bet: Bet = {
         username: gambler,
-        amount,
+        amount: roundedAmount,
         player,
         timestamp: Date.now()
       };
 
       return {
         ...prevState,
-        [`player${player}Pool`]: prevState[`player${player}Pool`] + amount,
-        totalPool: prevState.totalPool + amount,
+        [`player${player}Pool`]: prevState[`player${player}Pool`] + roundedAmount,
+        totalPool: prevState.totalPool + roundedAmount,
         bets: [...prevState.bets, bet]
+        // Do not add to activeBets array to prevent chat messages
       };
     });
   }, []);
@@ -324,7 +385,7 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isInitialized) return;
     
-    const interval = setInterval(addFakeBet, 2000);
+    const interval = setInterval(addFakeBet, 1000); // Increased frequency (every 1 second instead of 2)
     return () => clearInterval(interval);
   }, [isInitialized, addFakeBet]);
 
@@ -350,7 +411,38 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
 
   // Simplified bet placement
   const placeBet = async (amount: number, player: 1 | 2) => {
-    if (!username || battleState.betsLocked || amount > solBalance) return;
+    console.log('placeBet called with:', { amount, player, username, betsLocked: battleState.betsLocked, solBalance });
+    
+    // Validate all inputs
+    if (!amount || amount <= 0) {
+      console.error('Invalid bet amount:', amount);
+      return;
+    }
+    
+    if (player !== 1 && player !== 2) {
+      console.error('Invalid player selection:', player);
+      return;
+    }
+    
+    if (!username) {
+      console.error('Cannot place bet: No username');
+      return;
+    }
+    
+    if (battleState.betsLocked) {
+      console.error('Cannot place bet: Betting is locked');
+      return;
+    }
+    
+    if (amount > solBalance) {
+      console.error('Cannot place bet: Insufficient balance');
+      return;
+    }
+    
+    if (battleState.phase !== 'BETTING') {
+      console.error('Cannot place bet: Not in betting phase');
+      return;
+    }
 
     const bet: Bet = {
       username,
@@ -359,39 +451,52 @@ export function BattleProvider({ children }: { children: React.ReactNode }) {
       timestamp: Date.now()
     };
 
-    // Update local state first
-    setBattleState(prevState => ({
-      ...prevState,
-      [`player${player}Pool`]: prevState[`player${player}Pool`] + amount,
-      totalPool: prevState.totalPool + amount,
-      bets: [...prevState.bets, bet]
-    }));
+    console.log('Creating bet:', bet);
 
-    setSolBalance(solBalance - amount);
-
-    // Store bet data in Firebase for analytics
     try {
-      // Use a more structured path and include user info
-      const betId = `${Date.now()}_${username}`;
-      const betRef = ref(db, `bets/${betId}`);
-      
-      // Attempt to store the bet
-      await set(betRef, {
-        ...bet,
-        // Add additional metadata
-        createdAt: Date.now(),
-        battleNumber: battleState.currentBattle
-      }).catch(error => {
-        if (error.code === 'PERMISSION_DENIED') {
-          console.warn('Analytics storage failed - permission denied. This is non-critical.');
-          // The bet is still valid locally, just not stored for analytics
-        } else {
-          throw error; // Re-throw other errors
-        }
+      // Update local state first
+      setBattleState(prevState => {
+        console.log('Updating battle state with bet');
+        return {
+          ...prevState,
+          [`player${player}Pool`]: prevState[`player${player}Pool`] + amount,
+          totalPool: prevState.totalPool + amount,
+          bets: [...prevState.bets, bet]
+        };
       });
+
+      console.log('Updating user balance');
+      setSolBalance(solBalance - amount);
+
+      // Store bet data in Firebase for analytics
+      try {
+        // Use a more structured path and include user info
+        const betId = `${Date.now()}_${username}`;
+        const betRef = ref(db, `bets/${betId}`);
+        
+        console.log('Storing bet in Firebase');
+        // Attempt to store the bet
+        await set(betRef, {
+          ...bet,
+          // Add additional metadata
+          createdAt: Date.now(),
+          battleNumber: battleState.currentBattle
+        }).catch(error => {
+          if (error.code === 'PERMISSION_DENIED') {
+            console.warn('Analytics storage failed - permission denied. This is non-critical.');
+            // The bet is still valid locally, just not stored for analytics
+          } else {
+            throw error; // Re-throw other errors
+          }
+        });
+      } catch (error) {
+        console.error('Error storing bet data:', error);
+        // Don't revert the local bet - it's still valid even if analytics fails
+      }
+      
+      console.log('Bet placed successfully!');
     } catch (error) {
-      console.error('Error storing bet data:', error);
-      // Don't revert the local bet - it's still valid even if analytics fails
+      console.error('Error placing bet:', error);
     }
   };
 

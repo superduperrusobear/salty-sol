@@ -5,6 +5,15 @@ interface Fighter {
   health: number;
 }
 
+// Define arena backgrounds
+const ARENA_BACKGROUNDS = [
+  'bullxarena.png',
+  'moon.png',
+  'photon arena.png',
+  'pumparena.png',
+  'rugarena.png'
+];
+
 export class BattleScene extends Phaser.Scene {
   private fighter1?: Fighter;
   private fighter2?: Fighter;
@@ -20,8 +29,14 @@ export class BattleScene extends Phaser.Scene {
 
   // Method to change the arena background
   changeArena() {
-    this.currentArena = (this.currentArena + 1) % 5; // Cycle through 5 arenas
-    this.updateArenaScale();
+    // Cycle to the next arena
+    this.currentArena = (this.currentArena + 1) % ARENA_BACKGROUNDS.length;
+    
+    // Update the arena sprite texture
+    if (this.arenaSprite) {
+      this.arenaSprite.setTexture(`arena-${this.currentArena}`);
+      this.updateArenaScale();
+    }
     
     // Reset fighters to idle state
     if (this.fighter1?.sprite) {
@@ -29,6 +44,17 @@ export class BattleScene extends Phaser.Scene {
     }
     if (this.fighter2?.sprite) {
       this.fighter2.sprite.play('demon-idle');
+    }
+  }
+
+  // Method to set a specific arena
+  setArena(arenaIndex: number) {
+    if (arenaIndex >= 0 && arenaIndex < ARENA_BACKGROUNDS.length) {
+      this.currentArena = arenaIndex;
+      if (this.arenaSprite) {
+        this.arenaSprite.setTexture(`arena-${this.currentArena}`);
+        this.updateArenaScale();
+      }
     }
   }
 
@@ -100,13 +126,15 @@ export class BattleScene extends Phaser.Scene {
       this.load.image(`demon-death-${i}`, `/fighters/demon/demon_death_${i}.png`);
     }
 
-    // Load arena background
-    this.load.image('arena', '/scenes/bullxarena.png');
+    // Load all arena backgrounds
+    ARENA_BACKGROUNDS.forEach((arena, index) => {
+      this.load.image(`arena-${index}`, `/scenes/${arena}`);
+    });
   }
 
   create() {
-    // Set up arena background
-    this.arenaSprite = this.add.sprite(800, 450, 'arena');
+    // Set up arena background with the current arena
+    this.arenaSprite = this.add.sprite(800, 450, `arena-${this.currentArena}`);
     this.arenaSprite.setOrigin(0.5, 0.5);
     this.updateArenaScale();
     this.arenaSprite.setDepth(-1);
