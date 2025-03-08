@@ -21,7 +21,8 @@ export const createGameConfig = (parent: HTMLElement): Types.Core.GameConfig => 
       autoCenter: Phaser.Scale.CENTER_BOTH,
       width: '100%',
       height: '100%',
-      parent: parent
+      parent: parent,
+      expandParent: true
     },
     render: {
       pixelArt: false,

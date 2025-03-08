@@ -71,23 +71,23 @@ export const BattleGame: React.FC<BattleGameProps> = ({ className }) => {
   return (
     <div className="relative w-full h-full bg-transparent rounded-lg overflow-hidden">
       {/* Battle phase overlay */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-        <div className="bg-black/80 text-white px-4 py-2 rounded-lg text-sm font-medium">
+      <div className="absolute top-2 md:top-4 left-1/2 transform -translate-x-1/2 z-10">
+        <div className="bg-black/80 text-white px-2 md:px-4 py-1 md:py-2 rounded-lg text-xs md:text-sm font-medium">
           {battleState.phase === 'BATTLE' && (
-            <div className="flex items-center gap-2 text-red-400">
-              <span className="h-2 w-2 rounded-full bg-red-400 animate-pulse"></span>
+            <div className="flex items-center gap-1 md:gap-2 text-red-400">
+              <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-red-400 animate-pulse"></span>
               Battle in Progress - Round {battleState.currentRound}/3 ({battleState.timeRemaining}s)
             </div>
           )}
           {battleState.phase === 'BETTING' && (
-            <div className="flex items-center gap-2 text-green-400">
-              <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse"></span>
+            <div className="flex items-center gap-1 md:gap-2 text-green-400">
+              <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-green-400 animate-pulse"></span>
               Place Your Bets ({battleState.timeRemaining}s)
             </div>
           )}
           {battleState.phase === 'PAYOUT' && (
-            <div className="flex items-center gap-2 text-yellow-400">
-              <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse"></span>
+            <div className="flex items-center gap-1 md:gap-2 text-yellow-400">
+              <span className="h-1.5 w-1.5 md:h-2 md:w-2 rounded-full bg-yellow-400 animate-pulse"></span>
               Battle Complete!
             </div>
           )}
@@ -96,8 +96,8 @@ export const BattleGame: React.FC<BattleGameProps> = ({ className }) => {
 
       {/* Fighter names */}
       {battleState.phase === 'BATTLE' && (
-        <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="text-center text-gray-400">
+        <div className="absolute top-10 md:top-16 left-1/2 transform -translate-x-1/2 z-10">
+          <div className="text-center text-xs md:text-sm text-gray-400">
             {battleState.fighters.current.player1?.name} vs {battleState.fighters.current.player2?.name}
           </div>
         </div>
@@ -113,7 +113,8 @@ export const BattleGame: React.FC<BattleGameProps> = ({ className }) => {
           top: 0,
           left: 0,
           right: 0,
-          bottom: 0
+          bottom: 0,
+          minHeight: '100%'
         }}
       />
     </div>

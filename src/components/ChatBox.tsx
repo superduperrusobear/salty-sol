@@ -115,25 +115,25 @@ export const ChatBox = () => {
 
   return (
     <div className="flex h-full flex-col border border-gray-800 bg-black">
-      <div className="border-b border-gray-800 p-2">
-        <h3 className="text-sm font-bold text-white">Live Chat</h3>
+      <div className="border-b border-gray-800 p-1 md:p-2">
+        <h3 className="text-xs md:text-sm font-bold text-white">Live Chat</h3>
       </div>
       
       {!isUsernameSet && isGuest ? (
-        <div className="flex flex-1 flex-col items-center justify-center p-4">
-          <p className="mb-2 text-center text-sm text-gray-400">Enter your username to chat</p>
+        <div className="flex flex-1 flex-col items-center justify-center p-2 md:p-4">
+          <p className="mb-2 text-center text-xs md:text-sm text-gray-400">Enter your username to chat</p>
           <div className="w-full">
             <input
               type="text"
               value={chatUsername}
               onChange={(e) => setChatUsername(e.target.value)}
               placeholder="Enter username (min 3 characters)"
-              className="mb-2 w-full bg-gray-900 p-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="mb-2 w-full bg-gray-900 p-1.5 md:p-2 text-xs md:text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               minLength={3}
             />
             <button
               onClick={handleSetUsername}
-              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 py-2 text-sm font-medium text-white transition-all hover:opacity-90"
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 py-1.5 md:py-2 text-xs md:text-sm font-medium text-white transition-all hover:opacity-90"
             >
               Start Chatting
             </button>
@@ -141,9 +141,9 @@ export const ChatBox = () => {
         </div>
       ) : (
         <>
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 overflow-y-auto p-1 md:p-2">
             {error && (
-              <div className="bg-red-900/50 border-b border-red-800 p-2 text-sm text-red-300">
+              <div className="bg-red-900/50 border-b border-red-800 p-1 md:p-2 text-xs md:text-sm text-red-300">
                 {error}
               </div>
             )}
@@ -151,10 +151,10 @@ export const ChatBox = () => {
             <div className="space-y-1">
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
-                  <div className="animate-spin h-8 w-8 border-b-2 border-t-2 border-white"></div>
+                  <div className="animate-spin h-6 w-6 md:h-8 md:w-8 border-b-2 border-t-2 border-white"></div>
                 </div>
               ) : visibleMessages.map((msg, index) => (
-                <div key={msg.id || index} className="text-sm">
+                <div key={msg.id || index} className="text-xs md:text-sm">
                   <span className={`font-bold ${
                     msg.isSystemMessage 
                       ? 'text-yellow-400' 
@@ -171,8 +171,8 @@ export const ChatBox = () => {
             </div>
           </div>
           
-          <div className="border-t border-gray-800 p-2">
-            <div className="flex items-center gap-2">
+          <div className="border-t border-gray-800 p-1 md:p-2">
+            <div className="flex items-center gap-1 md:gap-2">
               <input
                 type="text"
                 value={inputValue}
@@ -180,12 +180,12 @@ export const ChatBox = () => {
                 onKeyDown={handleKeyDown}
                 placeholder={!username ? "Please set a username to chat" : "Type a message..."}
                 disabled={!username}
-                className="flex-1 bg-gray-900 p-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                className="flex-1 bg-gray-900 p-1 md:p-2 text-xs md:text-sm text-white placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-cyan-500"
               />
               <button
                 onClick={handleSendMessage}
                 disabled={!username || !inputValue.trim()}
-                className="bg-gradient-to-r from-cyan-500 to-blue-500 px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-gradient-to-r from-cyan-500 to-blue-500 px-2 md:px-4 py-1 md:py-2 text-xs md:text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Send
               </button>

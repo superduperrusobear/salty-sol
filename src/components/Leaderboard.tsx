@@ -100,7 +100,7 @@ export const Leaderboard = () => {
       {/* Tabs with glass effect */}
       <div className="flex border-b border-gray-800 bg-gradient-to-r from-blue-900/10 to-black">
         <button
-          className={`flex-1 py-2 text-xs font-medium transition-all ${
+          className={`flex-1 py-1 md:py-2 text-xs font-medium transition-all ${
             activeTab === 'daily' 
               ? 'border-b-2 border-blue-500 text-blue-400 bg-blue-900/20' 
               : 'text-gray-400 hover:text-white hover:bg-blue-900/10'
@@ -110,7 +110,7 @@ export const Leaderboard = () => {
           Daily
         </button>
         <button
-          className={`flex-1 py-2 text-xs font-medium transition-all ${
+          className={`flex-1 py-1 md:py-2 text-xs font-medium transition-all ${
             activeTab === 'weekly' 
               ? 'border-b-2 border-blue-500 text-blue-400 bg-blue-900/20' 
               : 'text-gray-400 hover:text-white hover:bg-blue-900/10'
@@ -120,7 +120,7 @@ export const Leaderboard = () => {
           Weekly
         </button>
         <button
-          className={`flex-1 py-2 text-xs font-medium transition-all ${
+          className={`flex-1 py-1 md:py-2 text-xs font-medium transition-all ${
             activeTab === 'allTime' 
               ? 'border-b-2 border-blue-500 text-blue-400 bg-blue-900/20' 
               : 'text-gray-400 hover:text-white hover:bg-blue-900/10'
@@ -132,7 +132,7 @@ export const Leaderboard = () => {
       </div>
       
       {/* Table Header with glass effect */}
-      <div className="grid grid-cols-12 border-b border-gray-800 px-3 py-2 text-xs font-medium text-gray-400 bg-gradient-to-r from-blue-900/5 to-black">
+      <div className="grid grid-cols-12 border-b border-gray-800 px-2 md:px-3 py-1 md:py-2 text-xs font-medium text-gray-400 bg-gradient-to-r from-blue-900/5 to-black">
         <div className="col-span-1">#</div>
         <div className="col-span-4">Player</div>
         <div className="col-span-2 text-center">W/L</div>
@@ -141,18 +141,18 @@ export const Leaderboard = () => {
       </div>
       
       {/* Table Body with hover effects */}
-      <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-black">
+      <div className="max-h-[250px] md:max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-black">
         {leaderboardData[activeTab].map((entry, index) => (
           <div 
             key={entry.rank} 
-            className={`grid grid-cols-12 border-b border-gray-800 px-3 py-2 text-xs transition-colors ${
+            className={`grid grid-cols-12 border-b border-gray-800 px-2 md:px-3 py-1 md:py-2 text-xs transition-colors ${
               index % 2 === 0 ? 'bg-black' : 'bg-gray-900/30'
             } hover:bg-blue-900/20`}
           >
             {/* Rank with medal for top 3 */}
             <div className="col-span-1 font-medium flex items-center">
               {entry.rank <= 3 ? (
-                <span className={`flex items-center justify-center w-5 h-5 rounded-full ${
+                <span className={`flex items-center justify-center w-4 md:w-5 h-4 md:h-5 rounded-full ${
                   entry.rank === 1 ? 'bg-yellow-500/20 text-yellow-500' :
                   entry.rank === 2 ? 'bg-gray-400/20 text-gray-400' :
                   'bg-amber-700/20 text-amber-700'
@@ -178,7 +178,7 @@ export const Leaderboard = () => {
             <div className="col-span-2 text-center text-gray-400">{entry.totalBets}</div>
             
             {/* Profit with gradient text for top performers */}
-            <div className={`col-span-3 text-right font-mono font-medium ${
+            <div className={`col-span-3 text-right font-mono text-xs md:text-sm font-medium ${
               entry.rank <= 3 
                 ? 'bg-gradient-to-r from-green-400 to-blue-400 bg-clip-text text-transparent' 
                 : 'text-green-400'
@@ -190,9 +190,9 @@ export const Leaderboard = () => {
       </div>
       
       {/* Footer with reflective effect */}
-      <div className="border-t border-gray-800 p-3 text-center bg-gradient-to-r from-black to-blue-900/20">
+      <div className="border-t border-gray-800 p-2 md:p-3 text-center bg-gradient-to-r from-black to-blue-900/20">
         <div className="text-xs text-gray-400 flex items-center justify-center gap-1">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-3.5 md:w-3.5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
           </svg>
           <span className="bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-transparent font-medium">

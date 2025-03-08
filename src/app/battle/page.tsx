@@ -29,69 +29,69 @@ const FighterModal = ({ fighter, isOpen, onClose, battleState }: FighterModalPro
   const imageToUse = !battleState?.currentBattle ? fallbackImage : (fighter.imageUri || fallbackImage);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
       
       {/* Modal Content */}
-      <div className="relative w-full max-w-lg rounded-lg border border-gray-800 bg-gray-950 p-4">
+      <div className="relative w-full max-w-sm md:max-w-lg rounded-lg border border-gray-800 bg-gray-950 p-3 md:p-4">
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-3 md:mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img 
               src={imageToUse}
               alt={fighter.name} 
-              className="h-8 w-8 rounded-full object-cover"
+              className="h-6 w-6 md:h-8 md:w-8 rounded-full object-cover"
             />
             <div>
-              <h3 className="text-lg font-bold text-white">{fighter.name}</h3>
-              <p className="text-sm text-gray-400">{fighter.symbol}</p>
+              <h3 className="text-base md:text-lg font-bold text-white">{fighter.name}</h3>
+              <p className="text-xs md:text-sm text-gray-400">{fighter.symbol}</p>
             </div>
           </div>
           <button 
             onClick={onClose}
             className="rounded-full p-1 text-gray-400 hover:bg-gray-800 hover:text-white"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
             </svg>
           </button>
         </div>
 
         {/* Token Analysis */}
-        <div className="space-y-4">
+        <div className="space-y-3 md:space-y-4">
           {/* Market Stats */}
-          <div className="rounded-lg border border-gray-800 bg-black/50 p-3">
-            <h4 className="mb-2 text-sm font-medium text-gray-400">Market Stats</h4>
-            <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border border-gray-800 bg-black/50 p-2 md:p-3">
+            <h4 className="mb-2 text-xs md:text-sm font-medium text-gray-400">Market Stats</h4>
+            <div className="grid grid-cols-2 gap-2 md:gap-3">
               <div>
                 <p className="text-xs text-gray-500">Market Cap</p>
-                <p className="font-mono text-white">${tokenService.formatNumber(fighter.marketCap || 0)}</p>
+                <p className="font-mono text-xs md:text-sm text-white">${tokenService.formatNumber(fighter.marketCap || 0)}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">24h Volume</p>
-                <p className="font-mono text-white">${tokenService.formatNumber(fighter.volume || 0)}</p>
+                <p className="font-mono text-xs md:text-sm text-white">${tokenService.formatNumber(fighter.volume || 0)}</p>
               </div>
               <div>
                 <p className="text-xs text-gray-500">Price</p>
-                <p className="font-mono text-white">${fighter.price?.toFixed(8) || '0.00000000'}</p>
+                <p className="font-mono text-xs md:text-sm text-white">${fighter.price?.toFixed(8) || '0.00000000'}</p>
               </div>
             </div>
           </div>
 
           {/* Token Info */}
-          <div className="rounded-lg border border-gray-800 bg-black/50 p-3">
-            <h4 className="mb-2 text-sm font-medium text-gray-400">Token Info</h4>
+          <div className="rounded-lg border border-gray-800 bg-black/50 p-2 md:p-3">
+            <h4 className="mb-2 text-xs md:text-sm font-medium text-gray-400">Token Info</h4>
             <div className="space-y-2">
               <div>
                 <p className="text-xs text-gray-500">Contract Address</p>
                 <div className="flex items-center gap-2">
-                  <p className="font-mono text-sm text-white truncate">{fighter.contractAddress}</p>
+                  <p className="font-mono text-xs md:text-sm text-white truncate">{fighter.contractAddress}</p>
                   <button 
                     onClick={() => navigator.clipboard.writeText(fighter.contractAddress)}
                     className="text-cyan-400 hover:text-cyan-300"
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 md:h-4 md:w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
                       <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
                     </svg>
@@ -123,6 +123,8 @@ export default function BattlePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showWinNotification, setShowWinNotification] = useState(false);
   const [winAmount, setWinAmount] = useState(0);
+  const [battleOutcomeViewed, setBattleOutcomeViewed] = useState(false);
+  const [showDemoMessage, setShowDemoMessage] = useState(false);
 
   // Monitor battle state changes
   useEffect(() => {
@@ -198,12 +200,17 @@ export default function BattlePage() {
       const unsubscribe = tokenService.onPoolData((data) => {
         console.log('Received pool data update:', data);
       });
-
-      return () => {
-        if (unsubscribe) unsubscribe();
-      };
+      
+      return () => unsubscribe();
     }
-  }, [battleState?.currentBattle]);
+  }, [battleState?.fighters?.current?.player1, battleState?.fighters?.current?.player2, battleState.currentBattle]);
+
+  // Reset battleOutcomeViewed when a new battle starts
+  useEffect(() => {
+    if (battleState.phase === 'BETTING') {
+      setBattleOutcomeViewed(false);
+    }
+  }, [battleState.phase, battleState.currentBattle]);
 
   // Helper function to get fighter image
   const getFighterImage = (fighter: Fighter | null, index: number): string => {
@@ -335,83 +342,97 @@ export default function BattlePage() {
 
   // Add a function to display battle outcome
   const renderBattleOutcome = () => {
-    if (battleState.phase !== 'PAYOUT' || !battleState.battleOutcome) return null;
+    if (battleState.phase !== 'PAYOUT' || !battleState.battleOutcome || battleOutcomeViewed) return null;
     
     const winner = battleState.battleOutcome.winner;
-    const winnerFighter = winner === 1 
-      ? battleState.fighters.current.player1 
-      : battleState.fighters.current.player2;
+    const winnerSymbol = winner === 1 
+      ? battleState.fighters.current.player1?.symbol 
+      : battleState.fighters.current.player2?.symbol;
     
-    if (!winnerFighter) return null;
-
-    const winnerImage = getFighterImage(winnerFighter, winner);
-
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 rounded-lg">
+      <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-10">
         <div className="text-center">
-          <h3 className="text-2xl font-bold text-white mb-2">Battle Completed!</h3>
-          
-          <div className="mb-4">
-            <div className="text-lg text-cyan-400 font-medium">Winner</div>
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <img 
-                src={winnerImage}
-                alt={winnerFighter.name} 
-                className="h-8 w-8 rounded-full object-cover"
-              />
-              <span className="text-xl font-bold text-white">{winnerFighter.name}</span>
-              <span className="text-gray-400">({winnerFighter.symbol})</span>
-            </div>
+          <div className="text-xl md:text-3xl font-bold text-white mb-2 md:mb-4">
+            {winnerSymbol} WINS!
           </div>
-          
-          <div className="text-lg text-green-400 font-medium">
-            Total Payout: {battleState.battleOutcome.winningAmount.toFixed(2)} SOL
+          <div className="text-base md:text-xl text-green-400 font-medium">
+            Payout: {battleState.battleOutcome.winningAmount.toFixed(2)} SOL
           </div>
-          
-          <div className="mt-4 text-sm text-gray-400">
-            Next battle starting in {battleState.timeRemaining} seconds...
+          <div className="mt-4 md:mt-6">
+            <button 
+              onClick={() => setBattleOutcomeViewed(true)}
+              className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 rounded-full text-sm md:text-base font-medium hover:opacity-90 transition-opacity"
+            >
+              Continue
+            </button>
           </div>
         </div>
       </div>
     );
   };
 
+  // Handle demo feature click
+  const handleDemoFeatureClick = () => {
+    setShowDemoMessage(true);
+    setTimeout(() => {
+      setShowDemoMessage(false);
+    }, 3000);
+  };
+
   if (isLoading) {
     return (
-      <main className="min-h-screen bg-black p-6">
+      <div className="min-h-screen bg-black text-white p-4 md:p-6">
         <div className="flex min-h-screen items-center justify-center">
           <div className="text-center">
             <div className="mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-t-2 border-cyan-500 mx-auto"></div>
             <p className="text-white text-lg">Loading battle arena...</p>
           </div>
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black p-6">
+    <div className="min-h-screen bg-black text-white p-4 md:p-6">
+      {/* Demo Message */}
+      {showDemoMessage && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-gradient-to-r from-blue-600 to-cyan-400 text-white px-4 py-2 rounded-lg shadow-glow animate-bounce-once">
+          You are currently experiencing the demo version. Feature not available.
+        </div>
+      )}
+      
       {/* Win Notification */}
       {showWinNotification && (
-        <div className="fixed top-4 right-4 bg-gradient-to-r from-green-500 to-blue-500 text-white p-4 rounded-lg shadow-lg z-50 animate-bounce">
-          <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <div className="font-bold">You Won!</div>
-              <div>+{winAmount.toFixed(2)} SOL (${(winAmount * SOL_TO_USDT_RATE).toFixed(2)} USDT)</div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowWinNotification(false)} />
+          <div className="relative bg-gradient-to-b from-gray-900 to-black border border-green-500 rounded-lg p-3 md:p-6 max-w-xs md:max-w-sm mx-auto text-center transform animate-bounce-once">
+            <button 
+              onClick={() => setShowWinNotification(false)}
+              className="absolute top-1 right-1 md:top-2 md:right-2 text-gray-400 hover:text-white"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+            <div className="flex items-center justify-center mb-3 md:mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 md:h-12 md:w-12 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <div>
+                <div className="text-base md:text-lg font-bold text-white">You Won!</div>
+                <div className="text-sm md:text-base">+{winAmount.toFixed(2)} SOL (${(winAmount * SOL_TO_USDT_RATE).toFixed(2)} USDT)</div>
+              </div>
             </div>
           </div>
         </div>
       )}
       
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between bg-black">
+      <div className="mb-2 md:mb-4 flex flex-col md:flex-row md:items-center md:justify-between bg-black">
         {/* Left side - Logo and Navigation */}
         <div className="flex items-center">
           {/* Logo */}
-          <div className="h-12 w-32 relative">
+          <div className="h-10 md:h-12 w-24 md:w-32 relative">
             <Image
               src="/images/png-clipart-logo-draftkings-brand-font-white-king-of-spades-white-text.png"
               alt="Salty Sol Logo"
@@ -421,65 +442,83 @@ export default function BattlePage() {
           </div>
 
           {/* Navigation Buttons */}
-          <div className="flex items-center gap-6 ml-8">
-            <button className="text-white hover:text-cyan-400 transition-colors text-sm font-medium">
+          <div className="flex items-center gap-2 md:gap-4 lg:gap-6 ml-4 md:ml-8 overflow-x-auto whitespace-nowrap">
+            <button 
+              onClick={handleDemoFeatureClick}
+              className="text-white hover:text-cyan-400 transition-colors text-xs md:text-sm font-medium"
+            >
               Referrals
             </button>
-            <button className="text-white hover:text-cyan-400 transition-colors text-sm font-medium">
+            <button 
+              onClick={handleDemoFeatureClick}
+              className="text-white hover:text-cyan-400 transition-colors text-xs md:text-sm font-medium"
+            >
               Portfolio
             </button>
-            <button className="text-white hover:text-cyan-400 transition-colors text-sm font-medium">
+            <button 
+              onClick={handleDemoFeatureClick}
+              className="text-white hover:text-cyan-400 transition-colors text-xs md:text-sm font-medium"
+            >
               Rewards
             </button>
-            <button className="text-white hover:text-cyan-400 transition-colors text-sm font-medium">
-              Upcoming Battles
+            <button 
+              onClick={handleDemoFeatureClick}
+              className="text-white hover:text-cyan-400 transition-colors text-xs md:text-sm font-medium"
+            >
+              Upcoming
             </button>
             <button 
               onClick={() => setIsLeaderboardOpen(true)}
-              className="bg-gradient-to-r from-blue-600 to-cyan-400 bg-clip-text text-transparent hover:from-blue-500 hover:to-cyan-300 transition-colors text-sm font-medium"
+              className="bg-gradient-to-r from-blue-600 to-cyan-400 bg-clip-text text-transparent hover:from-blue-500 hover:to-cyan-300 transition-colors text-xs md:text-sm font-medium"
             >
-              View Leaderboard
+              Leaderboard
             </button>
           </div>
         </div>
 
         {/* Right side - Wallet and Profile */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4 mt-2 md:mt-0">
           {/* Deposit Button */}
-          <button className="bg-gradient-to-r from-blue-600 to-cyan-400 text-white px-4 py-1.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity">
+          <button 
+            onClick={handleDemoFeatureClick}
+            className="bg-gradient-to-r from-blue-600 to-cyan-400 text-white px-3 md:px-4 py-1 md:py-1.5 rounded-full text-xs md:text-sm font-medium hover:opacity-90 transition-opacity"
+          >
             Deposit
           </button>
           
           {/* Wallet Button */}
-          <button className="w-fit min-w-max bg-gray-800/50 flex flex-row h-[32px] px-[16px] py-[8px] gap-[12px] justify-center items-center rounded-full hover:bg-gray-700/50 transition-colors">
+          <button 
+            onClick={handleDemoFeatureClick}
+            className="w-fit min-w-max bg-gray-800/50 flex flex-row h-[28px] md:h-[32px] px-[12px] md:px-[16px] py-[6px] md:py-[8px] gap-[8px] md:gap-[12px] justify-center items-center rounded-full hover:bg-gray-700/50 transition-colors"
+          >
             {/* Wallet Icon */}
-            <i className="text-[18px] flex items-center">
+            <i className="text-[16px] md:text-[18px] flex items-center">
               <Image
                 src="/images/wallet.svg"
                 alt="Wallet"
-                width={18}
-                height={18}
+                width={16}
+                height={16}
                 className="text-white flex-shrink-0 brightness-0 invert"
               />
             </i>
 
             {/* SOL Balance */}
-            <div className="hidden xl:flex flex-shrink-0 whitespace-nowrap flex-row gap-[8px] justify-start items-center min-w-[80px]">
+            <div className="flex flex-shrink-0 whitespace-nowrap flex-row gap-[4px] md:gap-[8px] justify-start items-center min-w-[60px] md:min-w-[80px]">
               <Image
                 src="/images/solana-sol-logo.png"
                 alt="SOL"
-                width={16}
-                height={16}
+                width={14}
+                height={14}
                 className="text-white flex-shrink-0"
               />
-              <span className="text-[14px] font-semibold">{solBalance.toFixed(2)}</span>
+              <span className="text-[12px] md:text-[14px] font-semibold">{solBalance.toFixed(2)}</span>
             </div>
 
             {/* Divider */}
-            <div className="hidden xl:block flex-shrink-0 w-[1px] h-[14px] bg-gray-700"></div>
+            <div className="hidden md:block flex-shrink-0 w-[1px] h-[14px] bg-gray-700"></div>
 
             {/* USDC Balance */}
-            <div className="hidden xl:flex flex-shrink-0 whitespace-nowrap flex-row gap-[8px] justify-start items-center min-w-[90px]">
+            <div className="hidden md:flex flex-shrink-0 whitespace-nowrap flex-row gap-[8px] justify-start items-center min-w-[90px]">
               <Image
                 src="/images/825.png"
                 alt="USDC"
@@ -491,7 +530,7 @@ export default function BattlePage() {
             </div>
 
             {/* Dropdown Arrow */}
-            <i className="text-[18px] flex items-center flex-shrink-0">
+            <i className="hidden md:flex text-[18px] items-center flex-shrink-0">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-[18px] h-[18px]">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
@@ -499,8 +538,11 @@ export default function BattlePage() {
           </button>
 
           {/* Profile Icon */}
-          <button className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5 text-gray-400">
+          <button 
+            onClick={handleDemoFeatureClick}
+            className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-gray-800 flex items-center justify-center hover:bg-gray-700 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4 md:w-5 md:h-5 text-gray-400">
               <path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10s10-4.48 10-10S17.52 2 12 2zM7.07 18.28c.43-.9 3.05-1.78 4.93-1.78s4.51.88 4.93 1.78C15.57 19.36 13.86 20 12 20s-3.57-.64-4.93-1.72zm11.29-1.45c-1.43-1.74-4.9-2.33-6.36-2.33s-4.93.59-6.36 2.33C4.62 15.49 4 13.82 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8c0 1.82-.62 3.49-1.64 4.83zM12 6c-1.94 0-3.5 1.56-3.5 3.5S10.06 13 12 13s3.5-1.56 3.5-3.5S13.94 6 12 6zm0 5c-.83 0-1.5-.67-1.5-1.5S11.17 8 12 8s1.5.67 1.5 1.5S12.83 11 12 11z"/>
             </svg>
           </button>
@@ -508,11 +550,11 @@ export default function BattlePage() {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-12 gap-2 md:gap-3 lg:gap-4">
         {/* Left Column - Battle Arena */}
-        <div className="col-span-10">
+        <div className="col-span-12 lg:col-span-9">
           {/* Battle Arena Card */}
-          <div className="container-card mb-4 rounded-lg overflow-hidden border-0">
+          <div className="container-card mb-2 md:mb-3 lg:mb-4 rounded-lg overflow-hidden border-0">
             <div className="header-section flex-between">
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
@@ -530,16 +572,16 @@ export default function BattlePage() {
             </div>
 
             {/* Battle Content */}
-            <div className="p-3">
+            <div className="p-2 md:p-3">
               {/* Battle Arena - Phaser Game Container */}
               <div 
                 id="game-container"
-                className="relative w-full rounded-lg overflow-hidden mb-4"
+                className="relative w-full rounded-lg overflow-hidden mb-2 md:mb-3 lg:mb-4"
                 style={{
                   minHeight: '500px',
                   maxHeight: '700px',
                   height: '100%',
-                  aspectRatio: '16/9',
+                  aspectRatio: '16/10',
                   display: 'flex',
                   flexDirection: 'column'
                 }}
@@ -570,19 +612,19 @@ export default function BattlePage() {
                   )}
                   
                   {/* Fighter Selection */}
-                  <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="grid grid-cols-2 gap-2 md:gap-3 mb-2 md:mb-4">
                     {/* Fighter 1 */}
                     <button
                       onClick={() => handlePlayerSelect(1)}
                       disabled={battleState.phase !== 'BETTING'}
-                      className={`bg-black rounded-lg p-3 ${
+                      className={`bg-black rounded-lg p-2 md:p-3 ${
                         selectedPlayer === 1
                           ? 'ring-1 ring-blue-500'
                           : 'border border-gray-900'
                       } ${battleState.phase !== 'BETTING' ? 'opacity-75 cursor-not-allowed' : ''}`}
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-black overflow-hidden flex-shrink-0 border border-gray-800">
+                      <div className="flex items-center gap-1 md:gap-2">
+                        <div className="h-6 w-6 md:h-8 md:w-8 rounded-full bg-black overflow-hidden flex-shrink-0 border border-gray-800">
                           <img 
                             src={getFighterImage(battleState.fighters.current.player1, 1)}
                             alt={battleState.fighters.current.player1?.name || 'Fighter 1'} 
@@ -590,7 +632,7 @@ export default function BattlePage() {
                           />
                         </div>
                         <div className="flex-1 text-left">
-                          <div className="text-sm font-medium text-white">
+                          <div className="text-xs md:text-sm font-medium text-white">
                             {battleState.fighters.current.player1?.symbol || 'P1'}
                           </div>
                           <div className="flex justify-between items-center">
@@ -605,14 +647,14 @@ export default function BattlePage() {
                     <button
                       onClick={() => handlePlayerSelect(2)}
                       disabled={battleState.phase !== 'BETTING'}
-                      className={`bg-black rounded-lg p-3 ${
+                      className={`bg-black rounded-lg p-2 md:p-3 ${
                         selectedPlayer === 2
                           ? 'ring-1 ring-blue-500'
                           : 'border border-gray-900'
                       } ${battleState.phase !== 'BETTING' ? 'opacity-75 cursor-not-allowed' : ''}`}
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-black overflow-hidden flex-shrink-0 border border-gray-800">
+                      <div className="flex items-center gap-1 md:gap-2">
+                        <div className="h-6 w-6 md:h-8 md:w-8 rounded-full bg-black overflow-hidden flex-shrink-0 border border-gray-800">
                           <img 
                             src={getFighterImage(battleState.fighters.current.player2, 2)}
                             alt={battleState.fighters.current.player2?.name || 'Fighter 2'} 
@@ -620,7 +662,7 @@ export default function BattlePage() {
                           />
                         </div>
                         <div className="flex-1 text-left">
-                          <div className="text-sm font-medium text-white">
+                          <div className="text-xs md:text-sm font-medium text-white">
                             {battleState.fighters.current.player2?.symbol || 'P2'}
                           </div>
                           <div className="flex justify-between items-center">
@@ -633,13 +675,13 @@ export default function BattlePage() {
                   </div>
                   
                   {/* Betting Controls */}
-                  <div className="bg-black border border-gray-900 rounded-lg p-3 mb-3">
-                    <div className="flex justify-between items-center mb-3">
+                  <div className="bg-black border border-gray-900 rounded-lg p-2 md:p-3 mb-2 md:mb-3">
+                    <div className="flex justify-between items-center mb-2 md:mb-3">
                       <span className="text-xs text-white">Amount</span>
                       <span className="text-xs text-gray-500">Balance: {solBalance.toFixed(2)} SOL</span>
                     </div>
                     
-                    <div className="grid grid-cols-4 gap-2 mb-3">
+                    <div className="grid grid-cols-4 gap-1 md:gap-2 mb-2 md:mb-3">
                       {/* Quick Bet Buttons */}
                       {[0.25, 0.5, 1, 2].map((amount) => (
                         <button
@@ -655,7 +697,7 @@ export default function BattlePage() {
                       ))}
                     </div>
                     
-                    <div className="grid grid-cols-5 gap-2 mb-3">
+                    <div className="grid grid-cols-5 gap-1 md:gap-2 mb-2 md:mb-3">
                       {/* Custom Amount Input */}
                       <div className="relative col-span-3">
                         <input
@@ -664,9 +706,9 @@ export default function BattlePage() {
                           onChange={handleCustomAmountChange}
                           disabled={battleState.phase !== 'BETTING'}
                           placeholder="Enter amount"
-                          className="w-full bg-black border border-gray-800 rounded py-1.5 px-3 text-sm text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50"
+                          className="w-full bg-black border border-gray-800 rounded py-1 md:py-1.5 px-2 md:px-3 text-xs md:text-sm text-white placeholder-gray-600 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-50"
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">SOL</span>
+                        <span className="absolute right-2 md:right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">SOL</span>
                       </div>
                       
                       {/* Place Bet Button */}
@@ -678,7 +720,7 @@ export default function BattlePage() {
                           (!selectedAmount && (!customAmount || parseFloat(customAmount) <= 0)) ||
                           (selectedAmount || (customAmount ? parseFloat(customAmount) : 0)) > solBalance
                         }
-                        className="col-span-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:opacity-90 text-white py-1.5 rounded text-sm disabled:opacity-50 disabled:bg-gray-800"
+                        className="col-span-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:opacity-90 text-white py-1 md:py-1.5 rounded text-xs md:text-sm disabled:opacity-50 disabled:bg-gray-800"
                       >
                         {battleState.phase === 'BETTING' ? 'Place Bet' : 'Betting Closed'}
                       </button>
@@ -711,7 +753,7 @@ export default function BattlePage() {
         </div>
 
         {/* Right Column - Chat */}
-        <div className="col-span-2">
+        <div className="col-span-12 lg:col-span-3">
           {/* Distribution Pool - Small Version */}
           <div className="mb-1 bg-black border border-gray-800 p-2">
             <div className="text-xs font-medium text-white mb-2">Distribution Pool</div>
@@ -765,12 +807,12 @@ export default function BattlePage() {
           </div>
           
           {/* Chat Box */}
-          <div className="h-[600px] border border-gray-800">
+          <div className="h-[400px] md:h-[500px] lg:h-[550px] border border-gray-800">
             <ChatBox />
           </div>
 
           {/* Demo Version Footer */}
-          <div className="mt-2 bg-black border border-gray-800 p-6 text-center h-[400px] flex flex-col justify-between">
+          <div className="mt-2 bg-black border border-gray-800 p-4 md:p-6 text-center h-[300px] md:h-[350px] lg:h-[400px] flex flex-col justify-between">
             <div>
               <div className="flex justify-center mb-6">
                 <Image
@@ -781,13 +823,18 @@ export default function BattlePage() {
                   className="object-contain"
                 />
               </div>
-              <div className="text-lg font-medium text-cyan-400 mb-4">
-                CURRENTLY EXPERIENCING DEMO VERSION
+              <div className="text-lg font-medium mb-4 animate-pulse">
+                <span className="bg-gradient-to-r from-cyan-500 to-blue-500 bg-clip-text text-transparent drop-shadow-[0_0_10px_rgba(6,182,212,0.5)]">
+                  CURRENTLY EXPERIENCING DEMO VERSION
+                </span>
               </div>
               <div className="text-base text-gray-400 mb-6">
                 Sign up for PRIVATE ACCESS
               </div>
-              <button className="w-full py-2 px-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:opacity-90 transition-all rounded-full">
+              <button 
+                onClick={() => router.push('/signup')}
+                className="w-full py-2 px-4 bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:opacity-90 transition-all rounded-full shadow-[0_0_15px_rgba(6,182,212,0.5)]"
+              >
                 Click Here
               </button>
             </div>
@@ -839,7 +886,7 @@ export default function BattlePage() {
                       <div className="flex items-center gap-1.5">
                         <span className="font-mono text-white">{battleState.player1Pool.toFixed(2)} SOL</span>
                         <span className="text-xs text-cyan-400">
-                          ({battleState.totalPool > 0 ? ((battleState.player1Pool / battleState.totalPool) * 100).toFixed(1) : '50'}%)
+                          ({battleState.totalPool > 0 ? ((battleState.player1Pool / battleState.totalPool) * 100).toFixed(1) : '50'}%
                         </span>
                       </div>
                     </div>
@@ -1045,6 +1092,6 @@ export default function BattlePage() {
           </div>
         </div>
       )}
-    </main>
+    </div>
   );
 } 
